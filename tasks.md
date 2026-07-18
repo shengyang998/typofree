@@ -93,12 +93,18 @@
   7. **`InputSessionCache` 落在 Core**（DESIGN §1 文件树把它挂 app-shell `IMK/`）：它是纯 `Int→InputSession` LRU、无 IMKit，故随 InputSession 状态机一起放 Core/Session 可单测（IMKSwift README §3 同款 pure-Swift LRU 模式）；app-shell 只持一个共享实例。
 
 ## M6 — 上下文 reader + AX + secure-field `[Shell]` (dep M5)
-- [ ] Core 纯逻辑：`SecureFieldGuard`(动态`IsSecureEventInputEnabled`+静态标记表、短 token 整词边界) + `IdentitySignature`/`RoundedFrame`/`FieldSignature` + `SendDetectionSession` 纯状态机 + `ContextSnapshot`/tier/suppression。**MF#6**（AX 触碰代码全出 Core，Core 只留纯值+纯逻辑）
+- [x] Core 纯逻辑：`SecureFieldGuard`(动态`IsSecureEventInputEnabled`+静态标记表、短 token 整词边界) + `IdentitySignature`/`RoundedFrame`/`FieldSignature` + `SendDetectionSession` 纯状态机 + `ContextSnapshot`/tier/suppression。**MF#6**（AX 触碰代码全出 Core，Core 只留纯值+纯逻辑）
 - [ ] app-shell 真实 AX：`ContextReadLadder`(IMKTextInput→AX→sentence-only) + `AXFocusResolver`(systemWide+50ms timeout+`AXUIElementGetPid`) + `AXContextReader` + `SecureInputMonitor` + denylist(Terminal/iterm2)
 - [ ] `ContextReading` wire 协议：`precedingContext`(LLM 快路径) + `isSecureContext` + `captureSnapshot`(commit 时全抓)。**MF#5**（统一 context 协议）
-- [ ] 测试 [Core]：`SecureFieldGuard`(AXSecureTextField真/"one-time code"真/"Opinion"假/"Pinyin"假) + `SendDetectionSession`(unresolved==empty==sessionEnded) + denylist
-- [ ] **大写字母触发临时英文**(2026-07-18 用户拍板的混输增强)：buffer 为空时敲大写 ASCII 字母(Shift+字母,非孤 Shift)→ 进入临时英文 literal 态,preedit 原样显示,Space/Return/失焦 verbatim 上屏后自动回中文;**组合中途**出现大写字母 = 按小写并入双拼流(不切态,保持可预期);孤 Shift 切换语义不变;InputSession 单测覆盖(触发/上屏回中/中途大写不触发/与孤 Shift 不冲突)
+- [x] 测试 [Core]：`SecureFieldGuard`(AXSecureTextField真/"one-time code"真/"Opinion"假/"Pinyin"假) + `SendDetectionSession`(unresolved==empty==sessionEnded) + denylist
+- [x] **大写字母触发临时英文**(2026-07-18 用户拍板的混输增强)：buffer 为空时敲大写 ASCII 字母(Shift+字母,非孤 Shift)→ 进入临时英文 literal 态,preedit 原样显示,Space/Return/失焦 verbatim 上屏后自动回中文;**组合中途**出现大写字母 = 按小写并入双拼流(不切态,保持可预期);孤 Shift 切换语义不变;InputSession 单测覆盖(触发/上屏回中/中途大写不触发/与孤 Shift 不冲突)
 - **交付**：上下文 ladder + secure 双保险真机可用 + 临时英文态。**验证**：Safari/Messages 打字上下文优雅退化、密码框学习 inert。**依赖**：M5。
+- **交付确认 2026-07-18（part 1，Core — part 2 app-shell AX 待接）**：`TypoFreeCore` `swift test`（净构建）**156/156 绿**（M0-M5 的 129 + M6 part 1 新增 27），零 warning。新增 Core 文件：`Context/{SecureFieldGuard,SendDetectionSession,CaptureDecision}.swift`（+ `ContextSnapshot.swift` 加 `IdentitySignature` typealias）；`Session/InputSession.swift` 加临时英文态。新增测试：`SecureFieldGuardTests`(8)/`SendDetectionSessionTests`(6)/`ContextCaptureTests`(7) + `InputSessionTests` 新增大写英文 6 例。**part 1 决策记录**：
+  1. **动态 secure 权威 = 注入闭包**（`SecureFieldGuard.isSecure(markers:isSecureEventInputEnabled:)`），Core 不直接调 Carbon `IsSecureEventInputEnabled()`——保持"零 ApplicationServices/AX import"（DESIGN §2.7 原文的 `isSystemSecureInputActive()` 静态包装挪到 part 2 shell 注入）。短 token(pin/otp/ssn/cvv/cvc) 整词边界（`spinning`/`typing`/`Opinion`/`Pinyin` 均不误判），长 marker(password/one-time code/…) substring。
+  2. **`IdentitySignature` = `FieldSignature` typealias**——DESIGN §2.7 两个名字同形 `{bundleId,pid,role,subrole,roundedFrame}`；一份真源，shell 一次 AX 读既 stamp `ContextSnapshot.fieldSignature` 又喂 `SendDetectionSession.poll`。
+  3. **`SendDetectionSession`**：unresolved(nil signature/nil text)==empty==signature 变更→`.sessionEnded`(sticky)；`currentText` 累积 last-seen 供 learning diff。Core 无 timer（part 2 poller 驱动 1.5s）。
+  4. **临时英文**：`tempEnglishActive` 与孤 Shift `englishMode` 独立态；触发要求 `.shift` 修饰键（CapsLock 单独不触发）；空 buffer 大写→literal 态，Space/Return 消费上屏（与中文 Space/Return commit 键语义一致）后自动回中文，Command/非可打印键 commit 后 passthrough；组合中途大写走既有 `composeLetter` 折小写，不触发。commit 走 `spans:[]`（literal 英文不进学习）。
+- **part 2 待接（app-shell）**：`ContextReadLadder`/`AXFocusResolver`/`AXContextReader`/`SecureInputMonitor`（注入真 `IsSecureEventInputEnabled` 到 `SecureFieldGuard.isSecure`）/`SendDetectionPoller`（驱动 `SendDetectionSession.poll` + 持 live `AXUIElement`/`IMKTextInput`）；`ContextReading` 真 conformer；NSEvent→KeyEvent 桥已（M5）对 Shift+字母产 uppercase `characters` + `.shift`（临时英文触发在真机就位）。
 
 ## M7 — 学习循环 + userdict `[Shell]`+`[Core]` (dep M6)
 - [ ] `MyersDiff` + `DiffLearner`(纯：编辑脚本分组 + 拒绝门 editRatio>0.5/lengthDelta>0.6 + ≤4 豁免 + 逐 op 分类 用 `PinyinReadingIndex` 读音交集/`encode(tonelessSyllables:)`)

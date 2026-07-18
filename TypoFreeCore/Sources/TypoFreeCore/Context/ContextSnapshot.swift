@@ -38,6 +38,13 @@ public struct FieldSignature: Equatable, Hashable, Sendable {
     }
 }
 
+/// The identity signature send-detection (M6/M7) polls on — `{bundleId, pid,
+/// role, subrole, roundedFrame}` (DECISIONS.md). It is the same value type as a
+/// captured `FieldSignature`: the app shell reads one signature from the focused
+/// element and uses it both to stamp a `ContextSnapshot` and to tell "same
+/// field" from "session ended" while polling (`SendDetectionSession`).
+public typealias IdentitySignature = FieldSignature
+
 /// Which context source tier produced a snapshot (the app's read ladder, M6).
 public enum ContextSourceTier: String, Sendable, Equatable {
     case imkTextInput      // fast path — this-sentence only (the LLM hot path)

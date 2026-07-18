@@ -21,6 +21,9 @@ private let shiftDown = KeyEvent(kind: .flagsChanged, keyCode: SpecialKeyCode.sh
 private let shiftUp = KeyEvent(kind: .flagsChanged, keyCode: SpecialKeyCode.shiftLeft, modifiers: [])
 @MainActor private func number(_ n: Int) -> KeyEvent { key(String(n)) }
 @MainActor private func cmd(_ c: String) -> KeyEvent { key(c, mods: .command) }
+/// An uppercase-letter keyDown (Shift+letter): the bridge sets characters="A" and
+/// the .shift modifier, exactly as NSEvent+KeyEvent produces for a shifted letter.
+@MainActor private func shiftLetter(_ s: String) -> KeyEvent { key(s, mods: .shift) }
 
 @MainActor
 final class InputSessionTests: XCTestCase {
@@ -180,6 +183,95 @@ final class InputSessionTests: XCTestCase {
         XCTAssertTrue(rig.session.englishMode)
         XCTAssertEqual(rig.client.lastCommitted, "你好")  // never lose input
         XCTAssertFalse(rig.session.isComposing)
+    }
+
+    // MARK: - Uppercase temp-English (M6)
+
+    func testUppercaseOnEmptyBufferEntersTempEnglish() throws {
+        let rig = try makeRig()
+        XCTAssertTrue(rig.session.handle(shiftLetter("H")))   // Shift+H triggers
+        XCTAssertTrue(rig.session.tempEnglishActive)
+        XCTAssertFalse(rig.session.isComposing)               // NOT Chinese composition
+        XCTAssertFalse(rig.session.englishMode)               // NOT the persistent toggle
+        XCTAssertEqual(rig.client.lastPreedit?.0, "H")        // raw char verbatim, case kept
+        // Subsequent keys echo verbatim (case preserved).
+        _ = rig.session.handle(key("e"))
+        _ = rig.session.handle(key("l"))
+        _ = rig.session.handle(key("l"))
+        _ = rig.session.handle(key("o"))
+        XCTAssertEqual(rig.client.lastPreedit?.0, "Hello")
+        XCTAssertTrue(rig.observer.commits.isEmpty)           // nothing committed yet
+    }
+
+    func testTempEnglishSpaceCommitsVerbatimThenBackToChinese() throws {
+        let rig = try makeRig()
+        _ = rig.session.handle(shiftLetter("O"))
+        _ = rig.session.handle(shiftLetter("K"))              // "OK" — both letters uppercase
+        XCTAssertEqual(rig.client.lastPreedit?.0, "OK")
+        XCTAssertTrue(rig.session.handle(spaceKey))           // consumed commit key
+        XCTAssertEqual(rig.client.lastCommitted, "OK")        // verbatim, incl. case
+        XCTAssertFalse(rig.session.tempEnglishActive)
+        XCTAssertFalse(rig.session.englishMode)               // auto-returned to Chinese
+        // Chinese composition immediately works again.
+        type(rig, "nihc")
+        XCTAssertTrue(rig.session.isComposing)
+        XCTAssertEqual(rig.renderer.lastModel?.engineBest, "你好")
+    }
+
+    func testTempEnglishReturnAndDefocusCommitVerbatim() throws {
+        // Return commits the literal verbatim.
+        let rig = try makeRig()
+        _ = rig.session.handle(shiftLetter("A"))
+        _ = rig.session.handle(key("i"))
+        XCTAssertTrue(rig.session.handle(returnKey))
+        XCTAssertEqual(rig.client.lastCommitted, "Ai")
+        XCTAssertFalse(rig.session.tempEnglishActive)
+
+        // Defocus (finalizeImplicitly — the deactivateServer path) commits verbatim.
+        let rig2 = try makeRig()
+        _ = rig2.session.handle(shiftLetter("B"))
+        _ = rig2.session.handle(key("y"))
+        rig2.session.finalizeImplicitly()
+        XCTAssertEqual(rig2.client.lastCommitted, "By")
+        XCTAssertFalse(rig2.session.tempEnglishActive)
+    }
+
+    func testMidCompositionUppercaseFoldsToLowercaseNoTrigger() throws {
+        let rig = try makeRig()
+        type(rig, "ni")                                       // composing Chinese
+        XCTAssertTrue(rig.session.isComposing)
+        _ = rig.session.handle(shiftLetter("H"))              // uppercase mid-composition
+        XCTAssertFalse(rig.session.tempEnglishActive)         // did NOT enter temp-English
+        XCTAssertEqual(rig.session.rawBuffer, "nih")          // folded to lowercase 'h'
+        XCTAssertTrue(rig.session.isComposing)
+    }
+
+    func testUppercaseTriggerDoesNotConflictWithLoneShiftToggle() throws {
+        let rig = try makeRig()
+        // Shift down (arms lone-Shift), a Shift+letter keyDown, then Shift up.
+        _ = rig.session.handle(shiftDown)
+        XCTAssertTrue(rig.session.handle(shiftLetter("Q")))   // enters temp-English
+        _ = rig.session.handle(shiftUp)
+        XCTAssertTrue(rig.session.tempEnglishActive)          // still literal English
+        XCTAssertFalse(rig.session.englishMode)               // lone-Shift toggle NOT fired
+        // A genuine lone Shift still toggles (after the literal commits).
+        _ = rig.session.handle(spaceKey)                      // commit "Q", back to Chinese
+        XCTAssertFalse(rig.session.tempEnglishActive)
+        _ = rig.session.handle(shiftDown)
+        _ = rig.session.handle(shiftUp)
+        XCTAssertTrue(rig.session.englishMode)                // lone Shift toggles as before
+    }
+
+    func testTempEnglishBackspaceEditsThenExitsWhenEmpty() throws {
+        let rig = try makeRig()
+        _ = rig.session.handle(shiftLetter("H"))
+        _ = rig.session.handle(key("i"))
+        XCTAssertTrue(rig.session.handle(backspaceKey))       // "Hi" → "H"
+        XCTAssertEqual(rig.client.lastPreedit?.0, "H")
+        XCTAssertTrue(rig.session.tempEnglishActive)
+        XCTAssertTrue(rig.session.handle(backspaceKey))       // "H" → empty → exit
+        XCTAssertFalse(rig.session.tempEnglishActive)
+        XCTAssertTrue(rig.observer.commits.isEmpty)           // backspace-to-empty commits nothing
     }
 
     // MARK: - Async slot#1 (provisional → landed, no reflow)

@@ -35,6 +35,14 @@ import CoreGraphics
     /// intervening key) toggles 中英 mode.
     private var loneShiftArmed = false
 
+    /// Temporary-English literal mode (M6): entered when an uppercase ASCII
+    /// letter is typed on an empty buffer (Shift+letter). While active, keys echo
+    /// verbatim (case preserved) into `literalBuffer`; Space/Return/defocus commit
+    /// it verbatim and auto-return to Chinese. Distinct from the persistent
+    /// lone-Shift `englishMode`. `public private(set)` so the shell + tests observe it.
+    public private(set) var tempEnglishActive = false
+    private var literalBuffer = ""
+
     /// Ordered, non-blocking submission chain to the coordinator actor: each
     /// submission awaits the prior so `onCompositionChanged`/`cancelPending`
     /// reach the coordinator in exactly the order the user typed (the typing
@@ -82,7 +90,7 @@ import CoreGraphics
         case .flagsChanged:
             return handleFlagsChanged(key)
         case .mouseDown:
-            if isComposing { finalizeImplicitly() }
+            if tempEnglishActive || isComposing { finalizeImplicitly() }
             return false                       // let the click through
         case .keyDown:
             return handleKeyDown(key)
@@ -91,6 +99,8 @@ import CoreGraphics
 
     private func handleKeyDown(_ key: KeyEvent) -> Bool {
         loneShiftArmed = false                 // a key intervened — not a lone Shift
+
+        if tempEnglishActive { return handleTempEnglishKey(key) }
 
         if englishMode { return false }        // pass ASCII straight through
 
@@ -120,6 +130,15 @@ import CoreGraphics
         // Number-key candidate selection (only while composing).
         if isComposing, hasNoShortcutModifier(key), let digit = digit(of: key) {
             return selectSlot(digit)
+        }
+
+        // Empty-buffer uppercase ASCII letter (Shift+letter, NOT lone Shift) →
+        // temporary English literal mode (M6). Mid-composition an uppercase
+        // letter instead folds to lowercase via `composeLetter` below (the
+        // shuangpin stream stays predictable).
+        if !isComposing, hasNoShortcutModifier(key), let upper = uppercaseASCIILetter(of: key) {
+            beginTempEnglish(with: upper)
+            return true
         }
 
         // 小鹤 letter key → append + recompute.
@@ -168,7 +187,8 @@ import CoreGraphics
     }
 
     private func toggleEnglishMode() {
-        if isComposing { finalizeImplicitly() }
+        if tempEnglishActive { commitLiteral() }
+        else if isComposing { finalizeImplicitly() }
         englishMode.toggle()
     }
 
@@ -190,6 +210,7 @@ import CoreGraphics
     /// Implicit finalize (Command / mouse / deactivate / commitComposition):
     /// engineBest ONLY — never an unaccepted async correction (user-Q4).
     public func finalizeImplicitly() {
+        if tempEnglishActive { commitLiteral(); return }   // literal English up verbatim
         guard isComposing, let result = lastResult else {
             if isComposing { commitFull(text: rawBuffer, spans: []) } // no result yet → raw
             return
@@ -272,6 +293,83 @@ import CoreGraphics
         lastModel = nil
         invalidateCorrection()
         deps.renderer.hide()
+    }
+
+    // MARK: - Temporary English literal mode (M6)
+
+    /// Enter temp-English from an empty buffer, seeding the literal with the
+    /// triggering uppercase letter and showing it verbatim as preedit.
+    private func beginTempEnglish(with first: Character) {
+        tempEnglishActive = true
+        literalBuffer = String(first)
+        deps.renderer.hide()          // no Chinese candidate bar in literal English
+        renderLiteral()
+    }
+
+    /// Route a key while in temp-English. Printable keys echo verbatim (case
+    /// preserved); Space/Return commit the literal and auto-return to Chinese;
+    /// Backspace edits; Escape discards; Command/other keys commit then pass through.
+    private func handleTempEnglishKey(_ key: KeyEvent) -> Bool {
+        if key.modifiers.contains(.command) {
+            commitLiteral()
+            return false                      // pass the shortcut through
+        }
+        switch key.keyCode {
+        case SpecialKeyCode.space, SpecialKeyCode.returnKey, SpecialKeyCode.keypadEnter:
+            commitLiteral()                   // verbatim up-screen, back to Chinese
+            return true                       // Space/Return are commit keys (consumed, like 中文)
+        case SpecialKeyCode.delete:
+            literalBackspace()
+            return true
+        case SpecialKeyCode.escape:
+            cancelTempEnglish()
+            return true
+        default:
+            break
+        }
+        if hasNoShortcutModifier(key), let ch = literalCharacter(of: key) {
+            literalBuffer.append(ch)
+            renderLiteral()
+            return true
+        }
+        commitLiteral()                       // non-printable / modified → commit + passthrough
+        return false
+    }
+
+    /// Commit the literal buffer verbatim and return to Chinese mode.
+    private func commitLiteral() {
+        let text = literalBuffer
+        literalBuffer = ""
+        tempEnglishActive = false
+        guard !text.isEmpty else {
+            client?.clearPreedit()
+            deps.renderer.hide()
+            return
+        }
+        commitFull(text: text, spans: [])     // no WordSpans — literal English isn't learned
+    }
+
+    private func literalBackspace() {
+        guard !literalBuffer.isEmpty else { tempEnglishActive = false; return }
+        literalBuffer.removeLast()
+        if literalBuffer.isEmpty {
+            tempEnglishActive = false
+            client?.clearPreedit()
+            deps.renderer.hide()
+        } else {
+            renderLiteral()
+        }
+    }
+
+    private func cancelTempEnglish() {
+        tempEnglishActive = false
+        literalBuffer = ""
+        client?.clearPreedit()
+        deps.renderer.hide()
+    }
+
+    private func renderLiteral() {
+        client?.setPreedit(literalBuffer, cursor: literalBuffer.count)
     }
 
     // MARK: - Rendering + correction scheduling (concurrency contract §3)
@@ -381,5 +479,24 @@ import CoreGraphics
         guard let s = key.charactersIgnoringModifiers, s.count == 1,
               let ch = s.first, let v = ch.wholeNumberValue, (1...9).contains(v) else { return nil }
         return v
+    }
+
+    /// The single uppercase ASCII letter of a Shift+letter key — the temp-English
+    /// trigger. Requires the Shift modifier, so CapsLock alone / a lone Shift
+    /// never trips it.
+    private func uppercaseASCIILetter(of key: KeyEvent) -> Character? {
+        guard key.modifiers.contains(.shift),
+              let s = key.characters ?? key.charactersIgnoringModifiers,
+              s.count == 1, let ch = s.first,
+              ch.isASCII, ch.isLetter, ch.isUppercase else { return nil }
+        return ch
+    }
+
+    /// A single printable character for the literal-English buffer (verbatim,
+    /// case preserved); nil for control characters.
+    private func literalCharacter(of key: KeyEvent) -> Character? {
+        guard let s = key.characters, s.count == 1, let ch = s.first else { return nil }
+        if let ascii = ch.asciiValue, ascii < 0x20 { return nil }
+        return ch
     }
 }
