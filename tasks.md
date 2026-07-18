@@ -97,7 +97,8 @@
 - [ ] app-shell 真实 AX：`ContextReadLadder`(IMKTextInput→AX→sentence-only) + `AXFocusResolver`(systemWide+50ms timeout+`AXUIElementGetPid`) + `AXContextReader` + `SecureInputMonitor` + denylist(Terminal/iterm2)
 - [ ] `ContextReading` wire 协议：`precedingContext`(LLM 快路径) + `isSecureContext` + `captureSnapshot`(commit 时全抓)。**MF#5**（统一 context 协议）
 - [ ] 测试 [Core]：`SecureFieldGuard`(AXSecureTextField真/"one-time code"真/"Opinion"假/"Pinyin"假) + `SendDetectionSession`(unresolved==empty==sessionEnded) + denylist
-- **交付**：上下文 ladder + secure 双保险真机可用。**验证**：Safari/Messages 打字上下文优雅退化、密码框学习 inert。**依赖**：M5。
+- [ ] **大写字母触发临时英文**(2026-07-18 用户拍板的混输增强)：buffer 为空时敲大写 ASCII 字母(Shift+字母,非孤 Shift)→ 进入临时英文 literal 态,preedit 原样显示,Space/Return/失焦 verbatim 上屏后自动回中文;**组合中途**出现大写字母 = 按小写并入双拼流(不切态,保持可预期);孤 Shift 切换语义不变;InputSession 单测覆盖(触发/上屏回中/中途大写不触发/与孤 Shift 不冲突)
+- **交付**：上下文 ladder + secure 双保险真机可用 + 临时英文态。**验证**：Safari/Messages 打字上下文优雅退化、密码框学习 inert。**依赖**：M5。
 
 ## M7 — 学习循环 + userdict `[Shell]`+`[Core]` (dep M6)
 - [ ] `MyersDiff` + `DiffLearner`(纯：编辑脚本分组 + 拒绝门 editRatio>0.5/lengthDelta>0.6 + ≤4 豁免 + 逐 op 分类 用 `PinyinReadingIndex` 读音交集/`encode(tonelessSyllables:)`)
