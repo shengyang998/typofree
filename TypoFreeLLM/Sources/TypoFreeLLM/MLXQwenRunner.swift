@@ -15,7 +15,7 @@ public struct MLXQwenRunner: CorrectionModelRunner {
 
     public init(downloader: any Downloader = TypoFreeModelDownloader(),
                 gpuCacheLimitBytes: Int = 32 * 1024 * 1024,
-                modelID: String = "mlx-community/Qwen3-0.6B-4bit",
+                modelID: String = ModelPreset.light.modelID,
                 promptBuilder: CorrectionPromptBuilder = .init(),
                 cacheDirectory: URL = MLXModelPaths.defaultCacheDirectory,
                 mirrorHost: String = "hf-mirror.com") {

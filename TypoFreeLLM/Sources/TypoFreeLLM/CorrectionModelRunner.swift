@@ -66,4 +66,19 @@ public enum MLXModelPaths {
         FileManager.default.homeDirectoryForCurrentUser
             .appending(path: ".cache").appending(path: "huggingface").appending(path: "hub")
     }
+
+    /// `~/Documents/huggingface` — mlx-swift-lm's OWN `HubApi` default cache
+    /// (used when a caller constructs `HubApi()` with no explicit
+    /// `downloadBase`; `research/prompt_bakeoff/RESULTS.md` confirms this is
+    /// where the bake-off scripts' bare `HubApi` defaulted to). Its layout
+    /// mirrors our own app-cache tier — `<base>/models/<id>` — NOT the
+    /// `models--org--repo/snapshots/<hash>` shape of the HF CLI hub cache.
+    /// DECISIONS.md 2026-07-18: on this dev machine it currently holds empty
+    /// stub directories only — never trust presence, verify a real
+    /// `*.safetensors` file exists (the probe does this the same way as tier 1).
+    public static var documentsHuggingFaceCache: URL {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Documents")
+        return documents.appending(path: "huggingface")
+    }
 }

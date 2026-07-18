@@ -81,9 +81,74 @@ final class LLMBackendResolverTests: XCTestCase {
         XCTAssertEqual(mlx?.availability, .needsDownload(bytes: nil))
     }
 
+    // MARK: M8 — MLX display name derives from the manager's live modelID,
+    // never a hardcoded "0.6B" (tasks.md §M8 ModelPreset box).
+
+    func testProbeBackendsMLXDisplayNameDerivesFromLightPreset() async {
+        let manager = MLXModelManager(modelID: ModelPreset.light.modelID, cacheDirectory: LLMTestFixtures.tempCacheDir())
+        let statuses = await LLMProviderFactory(mlxManager: manager).probeBackends()
+        let mlx = statuses.first { $0.id == .mlx }
+        XCTAssertEqual(mlx?.displayName, "MLX " + ModelPreset.light.displayName)
+        XCTAssertTrue(mlx?.detail.contains("500") ?? false)
+    }
+
+    func testProbeBackendsMLXDisplayNameDerivesFromQualityPreset() async {
+        let manager = MLXModelManager(modelID: ModelPreset.quality.modelID, cacheDirectory: LLMTestFixtures.tempCacheDir())
+        let statuses = await LLMProviderFactory(mlxManager: manager).probeBackends()
+        let mlx = statuses.first { $0.id == .mlx }
+        XCTAssertEqual(mlx?.displayName, "MLX " + ModelPreset.quality.displayName)
+        XCTAssertFalse(mlx?.displayName.contains("0.6B") ?? true, "must not hardcode the light preset's size")
+        XCTAssertTrue(mlx?.detail.contains("1.0") ?? false)
+    }
+
     // MARK: thinking is disabled (DECISIONS: NEVER enable thinking)
 
     func testThinkingIsDisabledInModelContext() {
         XCTAssertEqual(MLXModelManager.thinkingDisabledContext["enable_thinking"] as? Bool, false)
+    }
+}
+
+/// M8 — the FM `.rateLimited` fallback policy (DECISIONS.md 2026-07-18 user-Q2):
+/// default OFF stays silently on FM (already `FoundationModelsCorrectionProvider`'s
+/// built-in behavior); the toggle opts into hot-swapping to MLX. Pure decision
+/// function, zero network/UI — `AppEnvironment` (app-shell) is the only caller.
+final class RateLimitFallbackPolicyTests: XCTestCase {
+    func testToggleOffNeverFallsBack() {
+        XCTAssertFalse(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .foundationModels, activeAvailability: .unavailable(reason: "rateLimited"),
+            toggleEnabled: false, alreadyApplied: false))
+    }
+
+    func testToggleOnButNotRateLimitedDoesNotFallBack() {
+        XCTAssertFalse(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .foundationModels, activeAvailability: .ready,
+            toggleEnabled: true, alreadyApplied: false))
+    }
+
+    func testToggleOnAndRateLimitedFallsBack() {
+        XCTAssertTrue(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .foundationModels, activeAvailability: .unavailable(reason: "rateLimited"),
+            toggleEnabled: true, alreadyApplied: false))
+    }
+
+    func testAlreadyAppliedNeverFiresTwice() {
+        XCTAssertFalse(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .foundationModels, activeAvailability: .unavailable(reason: "rateLimited"),
+            toggleEnabled: true, alreadyApplied: true))
+    }
+
+    func testNonFMBackendNeverFallsBack() {
+        // Already on MLX (or Null) — the policy is FM-specific.
+        XCTAssertFalse(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .mlx, activeAvailability: .unavailable(reason: "rateLimited"),
+            toggleEnabled: true, alreadyApplied: false))
+    }
+
+    func testOtherUnavailableReasonsDoNotTriggerFallback() {
+        // Only the specific "rateLimited" reason triggers — e.g. Apple
+        // Intelligence simply being off must not swap providers.
+        XCTAssertFalse(RateLimitFallbackPolicy.shouldFallBackToMLX(
+            activeBackend: .foundationModels, activeAvailability: .unavailable(reason: "appleIntelligenceNotEnabled"),
+            toggleEnabled: true, alreadyApplied: false))
     }
 }

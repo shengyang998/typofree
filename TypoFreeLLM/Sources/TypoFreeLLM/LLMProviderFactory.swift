@@ -39,19 +39,58 @@ public struct LLMProviderFactory: Sendable {
         await LLMBackendResolver.resolve(mlxManager: mlxManager, preference: preference, promptBuilder: promptBuilder)
     }
 
+    /// Force-construct an MLX provider regardless of preference/availability —
+    /// used by the FM `.rateLimited` fallback (DECISIONS.md user-Q2): once FM
+    /// reports `.rateLimited` and the user's toggle is on, swap directly to MLX
+    /// rather than re-running the `.auto` resolve (which would just re-pick FM,
+    /// since `FoundationModelsSystemAvailability.isAvailable` is a system-level
+    /// check — "is Apple Intelligence enabled", not "is my current session
+    /// rate-limited").
+    public func makeMLXProvider() -> any LLMCorrectionProvider {
+        MLXCorrectionProvider(runner: MLXQwenRunner(manager: mlxManager), promptBuilder: promptBuilder)
+    }
+
     /// The Settings backend list (FM / MLX / Off), each with its availability.
+    /// The MLX row's display name + detail derive from the manager's live
+    /// `modelID` (via `ModelPreset`) — never a hardcoded "0.6B" (tasks.md §M8).
     public func probeBackends() async -> [LLMBackendStatus] {
         let fmAvailability: LLMProviderAvailability = FoundationModelsSystemAvailability.isAvailable
             ? .ready : .unavailable(reason: "appleIntelligenceUnavailable")
         let mlxAvailability = await mlxManager.availabilityProbe()
+        let modelID = mlxManager.modelID
+        let mlxDetail = "本地模型 · " + (ModelPreset(modelID: modelID)?.approxMemoryDescription ?? "用时加载")
         return [
             LLMBackendStatus(id: .foundationModels, availability: fmAvailability,
                              displayName: "Apple Intelligence", detail: "系统模型 · 约 0 MB"),
             LLMBackendStatus(id: .mlx, availability: mlxAvailability,
-                             displayName: "MLX Qwen3-0.6B", detail: "本地模型 · 约 500 MB（用时加载）"),
+                             displayName: "MLX " + ModelPreset.displayName(forModelID: modelID),
+                             detail: mlxDetail),
             LLMBackendStatus(id: .null, availability: .ready,
                              displayName: "关闭", detail: "候选 #1 = 引擎最优句"),
         ]
+    }
+}
+
+/// The FM `.rateLimited` fallback policy (DECISIONS.md 2026-07-18 user-Q2):
+/// default (toggle OFF) is to stay on FM — `FoundationModelsCorrectionProvider`
+/// already silently returns `nil` for the rest of the session once rate-limited,
+/// so slot#1 degrades to `engineBest` with zero extra wiring. The toggle (default
+/// OFF, tasks.md §M8) opts into actively hot-swapping to MLX instead so slot#1
+/// keeps getting corrections. This is the pure decision — `AppEnvironment`
+/// (app-shell) is the only caller with access to the live coordinator + toggle
+/// state, but the policy itself is deterministic and unit-tested here with zero
+/// network/UI.
+public enum RateLimitFallbackPolicy {
+    /// True iff the fallback should fire right now: the toggle is on, the active
+    /// backend is FoundationModels, it is reporting `.rateLimited`, and this
+    /// session hasn't already applied the fallback (idempotent — only swap once).
+    public static func shouldFallBackToMLX(activeBackend: LLMBackendID,
+                                           activeAvailability: LLMProviderAvailability,
+                                           toggleEnabled: Bool,
+                                           alreadyApplied: Bool) -> Bool {
+        guard toggleEnabled, !alreadyApplied, activeBackend == .foundationModels else { return false }
+        if case .unavailable(let reason) = activeAvailability, reason == "rateLimited" { return true }
+        return false
     }
 }
 

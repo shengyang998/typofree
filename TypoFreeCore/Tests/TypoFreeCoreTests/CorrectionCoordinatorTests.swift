@@ -183,6 +183,23 @@ final class CorrectionCoordinatorTests: XCTestCase {
         XCTAssertEqual(releaseCount, 1, "setProvider released the old provider")
     }
 
+    // MARK: M8 — currentBackendStatus() reflects the live provider, incl. after a hot-swap
+
+    func testCurrentBackendStatusReflectsActiveProvider() async throws {
+        let provider = ScriptedProvider(id: .mlx) { _ in nil }
+        let coord = CorrectionCoordinator(provider: provider, validator: try validator())
+
+        let before = await coord.currentBackendStatus()
+        XCTAssertEqual(before.id, .mlx)
+        XCTAssertEqual(before.availability, .ready)
+
+        let fm = ScriptedProvider(id: .foundationModels) { _ in nil }
+        await coord.setProvider(fm)
+
+        let after = await coord.currentBackendStatus()
+        XCTAssertEqual(after.id, .foundationModels, "status must reflect the swapped-in provider, not the old one")
+    }
+
     // MARK: cancelPending invalidates outstanding work
 
     func testCancelPendingStopsInFlight() async throws {

@@ -17,7 +17,13 @@ import MLXLMCommon
 public actor MLXModelManager {
     public private(set) var state: MLXModelState = .unloaded
 
-    private let modelID: String
+    /// Which model this manager is configured for — `nonisolated` (a `let`, set
+    /// once at init) so Settings' picker / menu-bar status can read it without an
+    /// `await`, and so display names can derive from it instead of a hardcoded
+    /// literal (tasks.md §M8: "displayName 不再硬编码 0.6B"). Switching preset
+    /// means building a NEW manager (`AppEnvironment.applyModelPreset`), not
+    /// mutating this one — one manager, one model, for its whole lifetime.
+    public nonisolated let modelID: String
     private let cacheDirectory: URL
     private let mirrorHost: String
     private let idleTimeout: Duration
@@ -29,7 +35,7 @@ public actor MLXModelManager {
     private var loadTask: Task<ModelContainer, Error>?
     private var lastUsed: Date?
 
-    public init(modelID: String = "mlx-community/Qwen3-0.6B-4bit",
+    public init(modelID: String = ModelPreset.light.modelID,
                 cacheDirectory: URL,
                 mirrorHost: String = "hf-mirror.com",
                 idleTimeout: Duration = .seconds(12 * 60),
@@ -56,10 +62,17 @@ public actor MLXModelManager {
 
     public func availabilityProbe() -> LLMProviderAvailability {
         if container != nil { return .ready }
-        if downloader.hasLocalModel(id: modelID, cacheDirectory: cacheDirectory) {
-            return .availableOnDemand
-        }
+        if wouldHitLocalCache() { return .availableOnDemand }
         return .needsDownload(bytes: nil)
+    }
+
+    /// Whether the NEXT `loadIfNeeded` would be satisfied entirely from a local
+    /// cache (app cache / HF hub cache / `~/Documents/huggingface`) with no
+    /// network — the honest "local-cache-hit state" `ModelDownloadView` shows
+    /// (tasks.md §M8) without threading a live source signal through the
+    /// `Downloader` protocol.
+    public func wouldHitLocalCache() -> Bool {
+        downloader.hasLocalModel(id: modelID, cacheDirectory: cacheDirectory)
     }
 
     /// Load the container if needed, coalescing concurrent callers onto one task.

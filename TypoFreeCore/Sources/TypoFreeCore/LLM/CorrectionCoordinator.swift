@@ -133,6 +133,14 @@ public actor CorrectionCoordinator {
         await old.releaseResources()
     }
 
+    /// The active backend's id + current availability — a read-only snapshot for
+    /// UX status surfacing (M8: menu-bar glyph, Settings backend list, the FM
+    /// `.rateLimited` fallback policy). Call again to re-poll; this performs no
+    /// mutation and never occupies the MainActor.
+    public func currentBackendStatus() async -> (id: LLMBackendID, availability: LLMProviderAvailability) {
+        (provider.id, await provider.availability())
+    }
+
     // MARK: - Internals
 
     private func runCorrection(_ s: CompositionSnapshot) async {

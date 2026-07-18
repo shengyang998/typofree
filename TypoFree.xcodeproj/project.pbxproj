@@ -26,6 +26,12 @@
 		B2000213 /* LearningLoopWiring.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000113; };
 		B200020D /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010D; };
 		B200020E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010E; };
+		B2000214 /* BackendPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000114; };
+		B2000215 /* ModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000115; };
+		B2000216 /* PermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000116; };
+		B2000217 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000117; };
+		B2000221 /* menuicon.tiff in Resources */ = {isa = PBXBuildFile; fileRef = B2000122; };
+		B2000222 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2000123; };
 		B2000501 /* TypoFreeCore in Frameworks */ = {isa = PBXBuildFile; productRef = B2000401 /* TypoFreeCore */; };
 		B2000502 /* TypoFreeLLM in Frameworks */ = {isa = PBXBuildFile; productRef = B2000402 /* TypoFreeLLM */; };
 		B2000503 /* IMKSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B2000403 /* IMKSwift */; };
@@ -51,8 +57,14 @@
 		B2000113 /* LearningLoopWiring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningLoopWiring.swift; sourceTree = "<group>"; };
 		B200010D /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		B200010E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B2000114 /* BackendPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendPickerView.swift; sourceTree = "<group>"; };
+		B2000115 /* ModelDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadView.swift; sourceTree = "<group>"; };
+		B2000116 /* PermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionView.swift; sourceTree = "<group>"; };
+		B2000117 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		B2000120 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B2000121 /* TypoFree.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TypoFree.entitlements; sourceTree = "<group>"; };
+		B2000122 /* menuicon.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = menuicon.tiff; sourceTree = "<group>"; };
+		B2000123 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B2000011 /* TypoFree.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TypoFree.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,6 +105,8 @@
 				B20000A4 /* UI */,
 				B2000120 /* Info.plist */,
 				B2000121 /* TypoFree.entitlements */,
+				B2000122 /* menuicon.tiff */,
+				B2000123 /* Assets.xcassets */,
 			);
 			path = TypoFree;
 			sourceTree = "<group>";
@@ -142,6 +156,10 @@
 			children = (
 				B200010D /* MenuBarView.swift */,
 				B200010E /* SettingsView.swift */,
+				B2000114 /* BackendPickerView.swift */,
+				B2000115 /* ModelDownloadView.swift */,
+				B2000116 /* PermissionView.swift */,
+				B2000117 /* OnboardingView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -216,6 +234,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B2000221 /* menuicon.tiff in Resources */,
+				B2000222 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +265,10 @@
 				B2000213 /* LearningLoopWiring.swift in Sources */,
 				B200020D /* MenuBarView.swift in Sources */,
 				B200020E /* SettingsView.swift in Sources */,
+				B2000214 /* BackendPickerView.swift in Sources */,
+				B2000215 /* ModelDownloadView.swift in Sources */,
+				B2000216 /* PermissionView.swift in Sources */,
+				B2000217 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
