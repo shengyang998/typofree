@@ -75,4 +75,85 @@ final class ContextCaptureTests: XCTestCase {
             ContextSourceTier.resolve(accessibilityAvailable: false, imkTextInputAvailable: false),
             .sentenceOnly)
     }
+
+    // MARK: - Commit-snapshot assembly (the ladder's pure decision, M6 part 2)
+
+    private let sig = FieldSignature(bundleId: "com.apple.TextEdit", pid: 42,
+                                     role: "AXTextArea", subrole: nil,
+                                     roundedFrame: RoundedFrame(x: 0, y: 0, width: 100, height: 20))
+
+    func testAssembleAXPathKeepsContextAndSignature() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.TextEdit", axPrecedingText: "你好世界",
+            imkPrecedingText: "", fieldSignature: sig,
+            isSystemSecureInputActive: false, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before, "你好世界")
+        XCTAssertEqual(snap.sourceTier, .accessibility)
+        XCTAssertEqual(snap.suppressionReason, .none)
+        XCTAssertEqual(snap.fieldSignature, sig)
+        XCTAssertFalse(snap.suppressesLearning)
+    }
+
+    func testAssembleFallsBackToIMKWhenAXAbsent() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.Safari", axPrecedingText: nil,
+            imkPrecedingText: "hello", fieldSignature: nil,
+            isSystemSecureInputActive: false, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before, "hello")
+        XCTAssertEqual(snap.sourceTier, .imkTextInput)
+        XCTAssertEqual(snap.suppressionReason, .none)
+    }
+
+    func testAssembleNoSourceDegradesToSentenceOnly() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.Safari", axPrecedingText: nil,
+            imkPrecedingText: "", fieldSignature: nil,
+            isSystemSecureInputActive: false, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before, "")
+        XCTAssertEqual(snap.sourceTier, .sentenceOnly)
+        XCTAssertEqual(snap.suppressionReason, .noSourceAvailable)
+        XCTAssertFalse(snap.suppressesLearning)   // degraded read, not a privacy suppression
+    }
+
+    func testAssembleDenylistBlanksContextAndDropsSignature() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.Terminal", axPrecedingText: "secret",
+            imkPrecedingText: "secret", fieldSignature: sig,
+            isSystemSecureInputActive: false, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before, "")
+        XCTAssertEqual(snap.suppressionReason, .denylisted)
+        XCTAssertNil(snap.fieldSignature)          // denylisted apps are never introspected
+        XCTAssertTrue(snap.suppressesLearning)
+    }
+
+    func testAssembleSystemSecureInputBlanksContextButKeepsSignature() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.Safari", axPrecedingText: "hunter2",
+            imkPrecedingText: "hunter2", fieldSignature: sig,
+            isSystemSecureInputActive: true, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before, "")            // learning inert
+        XCTAssertEqual(snap.suppressionReason, .systemSecureInput)
+        XCTAssertEqual(snap.fieldSignature, sig)   // identity is content-free, kept for send-detect
+        XCTAssertTrue(snap.suppressesLearning)
+    }
+
+    func testAssembleSecureFieldBlanksContext() {
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.Safari", axPrecedingText: "hunter2",
+            imkPrecedingText: "", fieldSignature: sig,
+            isSystemSecureInputActive: false, isSecureField: true, maxChars: 20)
+        XCTAssertEqual(snap.before, "")
+        XCTAssertEqual(snap.suppressionReason, .secureField)
+        XCTAssertTrue(snap.suppressesLearning)
+    }
+
+    func testAssembleCapsPrecedingContextToMaxChars() {
+        let long = String(repeating: "字", count: 50)
+        let snap = ContextSnapshot.assemble(
+            bundleId: "com.apple.TextEdit", axPrecedingText: long,
+            imkPrecedingText: "", fieldSignature: nil,
+            isSystemSecureInputActive: false, isSecureField: false, maxChars: 20)
+        XCTAssertEqual(snap.before.count, 20)
+        XCTAssertEqual(snap.before, String(repeating: "字", count: 20))
+    }
 }

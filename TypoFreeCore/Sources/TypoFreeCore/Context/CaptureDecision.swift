@@ -63,3 +63,48 @@ extension ContextSourceTier {
         return .sentenceOnly
     }
 }
+
+extension ContextSnapshot {
+    /// Assemble a commit-time snapshot from already-gathered facts — the pure
+    /// decision the app-shell context ladder (M6 part 2) delegates to after it
+    /// has done its AX/IMK reads. Keeping this in Core (MF#6: "AX 触碰代码全出
+    /// Core，Core 只留纯值+纯逻辑") makes the security-critical contract unit-testable
+    /// with zero live AX:
+    ///   - the source tier is AX (when `axPrecedingText != nil`) → IMK (when the
+    ///     fast path returned text) → sentence-only;
+    ///   - a privacy suppression (denylist / system-secure-input / secure field)
+    ///     BLANKS `before` so learning stays inert, while still carrying the field
+    ///     signature (identity only, no content) for send-detection — except a
+    ///     denylisted app, which we never introspect, so its signature is dropped.
+    /// - Parameters:
+    ///   - axPrecedingText: the AX-read preceding context, or `nil` if AX was
+    ///     untrusted / denylisted / unresolved (already capped by the reader).
+    ///   - imkPrecedingText: the fast IMKTextInput preceding context (may be "").
+    public static func assemble(
+        bundleId: String?,
+        axPrecedingText: String?,
+        imkPrecedingText: String,
+        fieldSignature: FieldSignature?,
+        isSystemSecureInputActive: Bool,
+        isSecureField: Bool,
+        maxChars: Int,
+        denylist: Set<String> = CaptureDenylist.defaults
+    ) -> ContextSnapshot {
+        let hasAX = axPrecedingText != nil
+        let hasIMK = !imkPrecedingText.isEmpty
+        let suppression = resolveSuppression(
+            bundleId: bundleId,
+            isSystemSecureInputActive: isSystemSecureInputActive,
+            isSecureField: isSecureField,
+            hasSource: hasAX || hasIMK,
+            denylist: denylist)
+        let tier = ContextSourceTier.resolve(accessibilityAvailable: hasAX,
+                                             imkTextInputAvailable: hasIMK)
+        let rawBefore = hasAX ? (axPrecedingText ?? "") : imkPrecedingText
+        let before = suppression.isPrivacySuppression ? "" : String(rawBefore.suffix(maxChars))
+        let signature = (suppression == .denylisted) ? nil : fieldSignature
+        return ContextSnapshot(before: before, after: "", appBundleId: bundleId,
+                               fieldSignature: signature, sourceTier: tier,
+                               suppressionReason: suppression)
+    }
+}

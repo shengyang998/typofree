@@ -17,7 +17,7 @@ final class AppEnvironment {
     let coordinator: CorrectionCoordinator
     let panel: CandidatePanel
     let cache: InputSessionCache
-    let context: IMKContextReader
+    let context: ContextReadLadder
 
     private let mlxManager: MLXModelManager
 
@@ -46,7 +46,11 @@ final class AppEnvironment {
 
         self.panel = CandidatePanel()
         self.cache = InputSessionCache(capacity: 5)
-        self.context = IMKContextReader()
+        // The real M6 context ladder: fast IMKTextInput on the LLM hot path, the
+        // bounded AX read + secure double-guard at commit time. Core typing never
+        // depends on AX (untrusted → IMK-only degrade); the AX permission prompt
+        // is M8's PermissionView, so we only read `AXIsProcessTrusted` here.
+        self.context = ContextReadLadder()
 
         let modelID = UserDefaults.standard.string(forKey: Self.modelIDKey) ?? Self.defaultModelID
         self.mlxManager = MLXModelManager(modelID: modelID, cacheDirectory: Self.modelCacheDirectory())
