@@ -1,0 +1,14 @@
+# Python build tooling
+tools/.venv/
+tools/__pycache__/
+tools/*.pyc
+
+# Downloaded lexicon sources (regenerable via tools/build_lexicon.py; see data/README.md)
+data/sources/
+
+# Swift/Xcode
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate

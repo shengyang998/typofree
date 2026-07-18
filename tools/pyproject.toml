@@ -1,0 +1,6 @@
+[project]
+name = "typofree-tools"
+version = "0.1.0"
+description = "TypoFree offline build tooling (lexicon compiler). Stdlib-only, no runtime deps."
+requires-python = ">=3.10"
+dependencies = []
