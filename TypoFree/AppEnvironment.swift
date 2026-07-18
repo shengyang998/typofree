@@ -285,7 +285,7 @@ final class AppEnvironment {
     private static func modelCacheDirectory() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let dir = base.appendingPathComponent("com.soleilyu.typofree/models", isDirectory: true)
+        let dir = base.appendingPathComponent("com.soleilyu.inputmethod.TypoFree/models", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

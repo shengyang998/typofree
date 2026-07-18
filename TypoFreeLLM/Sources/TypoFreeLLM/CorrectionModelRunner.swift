@@ -52,9 +52,9 @@ public enum DownloaderError: Error, Equatable {
 /// under Application Support, and existing HuggingFace hub copies are probed for
 /// reuse before any download.
 public enum MLXModelPaths {
-    public static let bundleID = "com.soleilyu.typofree"
+    public static let bundleID = "com.soleilyu.inputmethod.TypoFree"
 
-    /// `~/Library/Application Support/com.soleilyu.typofree/models`.
+    /// `~/Library/Application Support/com.soleilyu.inputmethod.TypoFree/models`.
     public static var defaultCacheDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())

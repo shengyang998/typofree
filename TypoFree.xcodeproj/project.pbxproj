@@ -292,7 +292,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.typofree;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.inputmethod.TypoFree;
 				PRODUCT_MODULE_NAME = TypoFree;
 				PRODUCT_NAME = TypoFree;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -317,7 +317,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.typofree;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.inputmethod.TypoFree;
 				PRODUCT_MODULE_NAME = TypoFree;
 				PRODUCT_NAME = TypoFree;
 				SWIFT_EMIT_LOC_STRINGS = YES;

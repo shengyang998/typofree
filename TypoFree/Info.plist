@@ -44,10 +44,10 @@
 	<dict>
 		<key>tsInputModeListKey</key>
 		<dict>
-			<key>com.soleilyu.typofree.mode.shuangpin</key>
+			<key>com.soleilyu.inputmethod.TypoFree.mode.shuangpin</key>
 			<dict>
 				<key>TISInputSourceID</key>
-				<string>com.soleilyu.typofree.mode.shuangpin</string>
+				<string>com.soleilyu.inputmethod.TypoFree.mode.shuangpin</string>
 				<key>TISIntendedLanguage</key>
 				<string>zh-Hans</string>
 				<key>tsInputModeCharacterRepertoireKey</key>
@@ -66,7 +66,7 @@
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
 		<array>
-			<string>com.soleilyu.typofree.mode.shuangpin</string>
+			<string>com.soleilyu.inputmethod.TypoFree.mode.shuangpin</string>
 		</array>
 	</dict>
 </dict>

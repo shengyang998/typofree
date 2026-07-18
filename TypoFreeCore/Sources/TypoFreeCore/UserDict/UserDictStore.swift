@@ -42,8 +42,8 @@ public actor UserDictStore {
     private nonisolated(unsafe) var db: OpaquePointer?
 
     /// The frozen default DB location. `bundleID` is FROZEN to
-    /// `com.soleilyu.typofree` — the identity-string rename sweep comes later.
-    public static func applicationSupportDefault(bundleID: String = "com.soleilyu.typofree") -> URL {
+    /// `com.soleilyu.inputmethod.TypoFree` — the identity-string rename sweep comes later.
+    public static func applicationSupportDefault(bundleID: String = "com.soleilyu.inputmethod.TypoFree") -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent(bundleID, isDirectory: true)
                    .appendingPathComponent("userdict.sqlite")

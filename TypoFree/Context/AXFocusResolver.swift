@@ -31,7 +31,7 @@ protocol FocusedFieldReading: Sendable {
 // hot path). At commit time the ladder blocks on this queue for one bounded read;
 // the per-keystroke typing path never reaches here (it uses the IMK fast path).
 final class AXFocusResolver: FocusedFieldReading {
-    private let queue = DispatchQueue(label: "com.soleilyu.typofree.ax.read", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.soleilyu.inputmethod.TypoFree.ax.read", qos: .userInitiated)
     private let contextReader: AXContextReader
     private let messagingTimeout: Float
 

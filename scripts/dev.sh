@@ -4,8 +4,9 @@
 # per-user Input Methods dir → TIS register + enable → verify registration.
 # DESIGN.md §7. Mirrors squirrel's TIS install mechanism (standard TIS* API only,
 # no GPL code). It DOES NOT select (activate) the source — you are typing on this
-# machine, so hijacking the active input source would be hostile. First install
-# still needs a logout/login for imklaunchagent to rescan (recorded below).
+# machine, so hijacking the active input source would be hostile. With the
+# .inputmethod. bundle id (required for TIS enumeration — discovered 2026-07-18)
+# the source appears immediately after registration; no logout needed.
 #
 # Usage:  scripts/dev.sh            # build + install + register + enable + verify
 #         TYPOFREE_SIGN_IDENTITY="My Identity" scripts/dev.sh
@@ -60,8 +61,9 @@ echo "==> [6/6] Verifying registration"
 if "$INSTALLED_BIN" --verify; then
 	echo "    OK — registered + enabled."
 else
-	echo "    Not yet enabled. FIRST INSTALL: log out and back in once so the input"
-	echo "    method server rescans ~/Library/Input Methods, then re-run: $INSTALLED_BIN --verify"
+	echo "    Not registered/enabled — unexpected (the .inputmethod. bundle id should"
+	echo "    enumerate immediately). Check Console for TIS errors; as a last resort"
+	echo "    log out/in once, then re-run: $INSTALLED_BIN --verify"
 fi
 
 cat <<EOF

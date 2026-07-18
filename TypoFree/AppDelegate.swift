@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: IMKServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.soleilyu.typofree"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.soleilyu.inputmethod.TypoFree"
         let connectionName = (Bundle.main.infoDictionary?["InputMethodConnectionName"] as? String)
             ?? "\(bundleID)_Connection"
         server = IMKServer(name: connectionName, bundleIdentifier: bundleID)

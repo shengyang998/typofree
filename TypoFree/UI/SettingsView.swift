@@ -44,7 +44,7 @@ private struct GeneralSettingsTab: View {
                     Text("全部处理均在本地进行：不联网同步、不上传、无遥测。")
                     Text("上下文读取与学习默认开启，密码框等安全输入场景强制排除，永不读取、永不学习。")
                     Text("学习仅保存不超过 20 个字符的短片段，从不保存完整字段内容；数据只存于本机 " +
-                         "~/Library/Application Support/com.soleilyu.typofree/ 下，随时可一键清除。")
+                         "~/Library/Application Support/com.soleilyu.inputmethod.TypoFree/ 下，随时可一键清除。")
                 }
                 .font(.callout).foregroundStyle(.secondary)
             }

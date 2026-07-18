@@ -9,8 +9,8 @@ import Carbon
 // these via argv. NOTE: normal app launch NEVER calls `select` — we do not hijack
 // the user's active input source (they are typing on this machine).
 struct TypoFreeInstaller {
-    /// The single input-source id (DECISIONS.md: `com.soleilyu.typofree.mode.shuangpin`).
-    static let modeID = "com.soleilyu.typofree.mode.shuangpin"
+    /// The single input-source id (DECISIONS.md: `com.soleilyu.inputmethod.TypoFree.mode.shuangpin`).
+    static let modeID = "com.soleilyu.inputmethod.TypoFree.mode.shuangpin"
 
     /// The installed bundle location (per-user, no sudo needed).
     static var installedAppURL: URL {
@@ -60,8 +60,8 @@ struct TypoFreeInstaller {
 
     /// Print + return the input source's registration/enable state (dev.sh reads
     /// the exit code). 0 = registered + enabled; 2 = registered, not enabled;
-    /// 1 = not registered (may need a logout/login on first install so the input
-    /// method server rescans ~/Library/Input Methods).
+    /// 1 = not registered (unexpected: with the .inputmethod. bundle id the source
+    /// enumerates immediately after TISRegisterInputSource — check Console/TIS).
     func verify() -> Int32 {
         guard let source = inputSource(id: Self.modeID) else {
             FileHandle.standardError.write(Data("TypoFree: NOT registered — \(Self.modeID) absent from TISCreateInputSourceList\n".utf8))

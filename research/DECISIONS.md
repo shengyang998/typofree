@@ -6,11 +6,11 @@
 
 ## Identity
 - **Product / IME name**: **TypoFree** (EXPLORE.md's "CraneIME" is dead — global rename).
-- **Bundle id**: `com.soleilyu.typofree`
+- **Bundle id**: `com.soleilyu.inputmethod.TypoFree` — the `.inputmethod.` path component is LOAD-BEARING: macOS TIS/imklaunchagent only enumerates Input-Methods bundles whose CFBundleIdentifier contains `.inputmethod.` (empirically proven 2026-07-18: with the old `com.soleilyu.typofree` id, TISRegisterInputSource returned noErr but the source never appeared in TISCreateInputSourceList on 26.4 or 26.5, even after logout; with this id it enumerates immediately, no logout). All working IMEs comply (Fire/vChewing/Squirrel). Mode ids must be prefixed by the bundle id: `com.soleilyu.inputmethod.TypoFree.mode.shuangpin`.
 - **Module name** (PRODUCT_MODULE_NAME): `TypoFree`
 - **IMKInputController class**: `TypoFreeInputController` → `InputMethodServerControllerClass = $(PRODUCT_MODULE_NAME).TypoFreeInputController`
-- **InputMethodConnectionName**: `$(PRODUCT_BUNDLE_IDENTIFIER)_Connection` (i.e. `com.soleilyu.typofree_Connection`)
-- **TISInputSourceID / mode**: `com.soleilyu.typofree.mode.shuangpin`
+- **InputMethodConnectionName**: `$(PRODUCT_BUNDLE_IDENTIFIER)_Connection` (i.e. `com.soleilyu.inputmethod.TypoFree_Connection`)
+- **TISInputSourceID / mode**: `com.soleilyu.inputmethod.TypoFree.mode.shuangpin`
 - **Menu display**: "TypoFree" with 小鹤双拼 subtitle.
 - **Repo dir**: `labs/typofree/`
 

@@ -181,7 +181,7 @@ let package = Package(
 | 设置 | 值 | 说明 |
 |---|---|---|
 | target/`PRODUCT_NAME` | `TypoFree` | ⇒ `PRODUCT_MODULE_NAME=TypoFree`，匹配 `$(PRODUCT_MODULE_NAME).TypoFreeInputController` |
-| `PRODUCT_BUNDLE_IDENTIFIER` | `com.soleilyu.typofree` | 锁定 |
+| `PRODUCT_BUNDLE_IDENTIFIER` | `com.soleilyu.inputmethod.TypoFree` | 锁定 |
 | `MACOSX_DEPLOYMENT_TARGET` | `26.0` | FM 的运行期分支 (`isAvailable`)，非部署下限；MLX/Null 必须在 26.0 可用 |
 | `SWIFT_VERSION` | `6` | 偏离 KeyBridge 的 5.0 — 全程依赖 actor 隔离 |
 | `GENERATE_INFOPLIST_FILE` | `YES` + 真实 `INFOPLIST_FILE` | KeyBridge 同款合并模式 |
@@ -752,7 +752,7 @@ public enum DiffLearner {   // 纯静态
 
 ### 2.8 userdict（Core/UserDict）— must_fix #10：原生 sqlite3，**弃 GRDB**
 
-`~/Library/Application Support/com.soleilyu.typofree/userdict.sqlite`（WAL）。4 表：
+`~/Library/Application Support/com.soleilyu.inputmethod.TypoFree/userdict.sqlite`（WAL）。4 表：
 `words(key_seq,word,boost,count,last_used)`、`correction_pairs`、`pending_oov`、
 `learning_events(span≤20)`。occurrence≥2 → 促进 `words`，`boost = log(1+count)`（加性 log-domain，
 直接叠进 Viterbi）。`clearAllLearnedData()` 删全表 + WAL checkpoint + VACUUM（无取证残留）。
@@ -873,7 +873,7 @@ MainActor 换入。Core 里无锁、无 actor-per-keystroke。
 `LSBackgroundOnly=false` + `NSPrincipalClass=NSApplication`（EXPLORE Appendix C 的
 `LSBackgroundOnly=true` 是错的）；`InputMethodConnectionName=$(PRODUCT_BUNDLE_IDENTIFIER)_Connection`；
 `InputMethodServerControllerClass=$(PRODUCT_MODULE_NAME).TypoFreeInputController`；
-`ComponentInputModeDict` 单模式 `com.soleilyu.typofree.mode.shuangpin`（`小鹤双拼`，`zh-Hans`）。
+`ComponentInputModeDict` 单模式 `com.soleilyu.inputmethod.TypoFree.mode.shuangpin`（`小鹤双拼`，`zh-Hans`）。
 **entitlements 仅** `com.apple.security.app-sandbox=false`（AX 走 TCC 运行期授权，非 entitlement key）。
 
 **dev.sh**（对齐 squirrel 机制，标准 `TIS*` API，安装到**每用户** `~/Library/Input Methods`，
