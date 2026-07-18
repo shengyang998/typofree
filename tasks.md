@@ -38,13 +38,15 @@
 - **交付确认 2026-07-18**：`Lexicon/{LexiconPosting,LexiconBlobFormat,LexiconStore,PinyinReadingIndex}.swift` 落地（+ 内部 `TFXRBlobFormat` 私有 reader，同文件）。`swift test --filter Lexicon` 33/33 绿；全量 `swift test`（`rm -rf .build` 净构建）56/56 绿、零 warning；`TypoFreeLLM` 侧 `swift build`+`swift test` 同步验证仍绿（1/1）。`build_lexicon.py` 全量重跑（`uv run build_lexicon.py`，6.81s）：essay 442,693→437,796 词（OpenCC 合并 4,897 条），resolved 437,490/437,796=99.9301%，`lexicon.bin` 310,654 keys / 437,490 postings / 9,044,402 bytes(8.63MB，比 OpenCC 前 8.67MB 略小)；`readings.bin` 44,435 字、6,992 个多音字（去调后去重；8,624 是去重前按调号区分的旧口径）、455,794 bytes(445.1KB)，最多 8 个读音/字（擖）。**`postings("aa")` 重算后的真实简体序 = `[啊,阿,锕,嗄]`**（4 项，非 DESIGN 引用的旧 5 项 `[啊,阿,錒,嗄,锕]`——繁体錒→简体锕，频次合并）。两次全默认参数重跑 md5 校验字节完全一致（确定性保持）。详细 rationale 见 `data/README.md`（新增 "OpenCC 繁→简 conversion" + "readings.bin toneless convention" 两节）。
 
 ## M3 — Lattice + Viterbi + user-boost overlay `[Core]` (dep M2)
-- [ ] `WordSpan`/`Candidate`/`EngineResult`(超集：engineBest+bestPath+focusCandidates+preeditDisplay+hanziCount+endsAtClauseBoundary+incompleteTail)。**MF#5**（统一结果类型）
-- [ ] `UserBoostOverlay`(不可变 snapshot, 加性 delta) + `LatticeConfig`
-- [ ] `Lattice` + `ConversionEngine.convert(_:overlay:focus:)`（每键全量重算、length bonus、兜底连通、tie-break 确定）。**MF#8**（overlay 必进 recompute，否则学习 inert）
-- [ ] `CandidateEngine` wire 协议带 `overlay` 参数。**MF#3**（修 overlay 到不了 lattice 的漏洞）
-- [ ] `EngineResult.preeditDisplay` 按 hybrid 默认产（见 user-Q3）
-- [ ] 测试：短语胜单字 / 稀有短语让位 / tie-break 确定 / 非法音节兜底 / **overlay 加性 boost 改排名回归**
+- [x] `WordSpan`/`Candidate`/`EngineResult`(超集：engineBest+bestPath+focusCandidates+preeditDisplay+hanziCount+endsAtClauseBoundary+incompleteTail)。**MF#5**（统一结果类型）
+- [x] `UserBoostOverlay`(不可变 snapshot, 加性 delta) + `LatticeConfig`
+- [x] `Lattice` + `ConversionEngine.convert(_:overlay:focus:)`（每键全量重算、length bonus、兜底连通、tie-break 确定）。**MF#8**（overlay 必进 recompute，否则学习 inert）
+- [x] `CandidateEngine` wire 协议带 `overlay` 参数。**MF#3**（修 overlay 到不了 lattice 的漏洞）
+- [x] `EngineResult.preeditDisplay` 按 hybrid 默认产（见 user-Q3）
+- [x] 测试：短语胜单字 / 稀有短语让位 / tie-break 确定 / 非法音节兜底 / **overlay 加性 boost 改排名回归**
 - **交付**：确定性引擎全测过。**验证**：`swift test --filter Engine`。**依赖**：M2。
+- **交付确认 2026-07-18**：`Engine/{Candidate,Lattice,ConversionEngine}.swift` + `Overlay/UserBoostOverlay.swift` + `Wire/CandidateEngine.swift` 落地（`Syllable`/`DecodeResult` 仍在 M1 的 `Scheme/ShuangpinDecoder.swift`）。`swift test --filter Engine` 19/19 绿（含强制的 overlay 改排名回归 + 感知性能测试）；全量 `swift test`（`rm -rf .build` 净构建）75/75 绿、零 warning（M0-M2 的 56 + M3 新增 19）；`TypoFreeLLM` 增量 `swift build` 仍绿（重编改动的 Core path dep + 重链，4.57s）。**性能**：真 `lexicon.bin` 上 20 音节 `convert` = **0.5572 ms/次**（50 次均值，远低于 5ms 目标；断言留 50ms 防 CI 抖动）。
+- **M3 决策记录（DESIGN 未锁死处，非偏离）**：(1) **兜底边 word** = `syllable.pinyin ?? syllable.code`——合法但无词的音节显可读拼音（"nj"→"nan"），非法组合（"br"，`r` 不在 bpmf final 表→decode nil）显原始击键（"br"）。(2) **overlay-only OOV 词**（base 无该词）按 base logFreq=0 + delta 计分，与 base 词加性叠加同源，故用户学的词二次出现即可竞争排名。(3) **`hanziCount`** = 非 fallback span 的 word 字符数之和（base/overlay 词库均为纯汉字，只有 fallback 是拼音/字母，故等价于"engineBest 里的汉字数"，无需 Unicode 汉字判定）。(4) **`endsAtClauseBoundary`** = `engineBest.last ∈ config.clauseBoundary`；当前 a-z-only 击键缓冲下实际恒为 false（标点如何进组合由 M5 定），此字段是前向 hook。(5) **`engineBest` 不含 incompleteTail**（整句 Viterbi 只覆盖完整音节；hybrid preedit 才拼上尾字母）。
 
 ## M4 — LLM providers + 校验门 + coordinator `[Core]`+`[LLM]` (dep M3)
 - [ ] 唯一 `LLMCorrectionProvider` 协议 + `CorrectionRequest`/`CorrectionResult`(RAW) + `NullProvider`(返回 nil)。**MF#3**（四协议收敛：nil=放弃、provider 产 RAW、门在 coordinator）
