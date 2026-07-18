@@ -4,6 +4,13 @@
 > 已把六份模块设计 + 工程评审的所有 `must_fix`/接口冲突**协调为一套自洽契约**。
 > 冲突处一律以本文件为准。锁定基线见 `research/DECISIONS.md`（本文件从属于它）。
 > 日期 2026-07-18。
+>
+> ⚠️ **实现期偏差记录在 `tasks.md` 各里程碑的「交付确认」块里,本文件不回溯改写。**
+> 已知与实现不一致处(以 tasks.md/代码为准):swift-tools-version 实为 6.2(非 6.1);
+> lexicon.bin 真实字节在 `TypoFreeCore/Sources/TypoFreeCore/Resources/`(`data/` 侧是符号链接,方向与 §1 原文相反);
+> `postings("aa")` OpenCC 后为 4 项简体序;§2.1 重载键散文表以 rime 真源为准(见 M1 交付确认);
+> swift-transformers 无 umbrella module(`import Tokenizers` 等子模块);MLX 修正模型为 RAM 感知双预设(见 DECISIONS bake-off 节,非固定 0.6B)。
+> 优先级:**DECISIONS.md > tasks.md 交付确认 > 本文件 > EXPLORE.md**。
 
 ---
 
