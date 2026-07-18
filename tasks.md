@@ -49,17 +49,26 @@
 - **M3 决策记录（DESIGN 未锁死处，非偏离）**：(1) **兜底边 word** = `syllable.pinyin ?? syllable.code`——合法但无词的音节显可读拼音（"nj"→"nan"），非法组合（"br"，`r` 不在 bpmf final 表→decode nil）显原始击键（"br"）。(2) **overlay-only OOV 词**（base 无该词）按 base logFreq=0 + delta 计分，与 base 词加性叠加同源，故用户学的词二次出现即可竞争排名。(3) **`hanziCount`** = 非 fallback span 的 word 字符数之和（base/overlay 词库均为纯汉字，只有 fallback 是拼音/字母，故等价于"engineBest 里的汉字数"，无需 Unicode 汉字判定）。(4) **`endsAtClauseBoundary`** = `engineBest.last ∈ config.clauseBoundary`；当前 a-z-only 击键缓冲下实际恒为 false（标点如何进组合由 M5 定），此字段是前向 hook。(5) **`engineBest` 不含 incompleteTail**（整句 Viterbi 只覆盖完整音节；hybrid preedit 才拼上尾字母）。
 
 ## M4 — LLM providers + 校验门 + coordinator `[Core]`+`[LLM]` (dep M3)
-- [ ] 唯一 `LLMCorrectionProvider` 协议 + `CorrectionRequest`/`CorrectionResult`(RAW) + `NullProvider`(返回 nil)。**MF#3**（四协议收敛：nil=放弃、provider 产 RAW、门在 coordinator）
-- [ ] `CorrectionValidator`(D12：全汉字→长度±1→`canRead` 任一读音命中率，比较空间=codes)
-- [ ] `CorrectionCoordinator`(actor, Core)：防抖/取消/触发门/emit==最新 requestID。**MF#4**（唯一异步编排，staleness=requestID）
-- [ ] `CorrectionPromptBuilder`(systemInstructions byte-identical + few-shot)
-- [ ] `FoundationModelsCorrectionProvider`(Core, `#if canImport(FoundationModels)`, @Generable + timeout race)
-- [ ] `CorrectionModelRunner` 端口 + `MLXQwenRunner`(Qwen3-0.6B-4bit, enable_thinking:false, temp 0) + `MLXCorrectionProvider`(actor, 状态机/按需载/闲卸双保险) + `TypoFreeModelDownloader`(HF→hf-mirror, App Support 缓存) [LLM]
-- [ ] `MLXModelManager` + `LLMProviderFactory` + `LLMBackendResolver`(FM→MLX→Null) [LLM]
-- [ ] provider 隔离硬契约断言：`correct()` 期间不占 MainActor（并发风险 #2）
-- [ ] 测试 [Core]：门 5 例(接受同音/拒 latin/拒长度/拒幻觉/**多音字不误拒**) + coordinator(防抖单次/clause 跳防抖/新键取消/stale-drop by requestID/超时→nil/卡死不死锁) 全用 `FakeModelRunner`+fake provider
-- [ ] 测试 [LLM]：`LLMBackendResolver` fake 两分支零网络；`MLXModelManagerLiveTests` 门控 `TYPOFREE_MLX_LIVE_TEST=1`(真下载+`additionalContext["enable_thinking"]==false`+无`<think>`)
+- [x] 唯一 `LLMCorrectionProvider` 协议 + `CorrectionRequest`/`CorrectionResult`(RAW) + `NullProvider`(返回 nil)。**MF#3**（四协议收敛：nil=放弃、provider 产 RAW、门在 coordinator）
+- [x] `CorrectionValidator`(D12：全汉字→长度±1→`canRead` 任一读音命中率，比较空间=codes)
+- [x] `CorrectionCoordinator`(actor, Core)：防抖/取消/触发门/emit==最新 requestID。**MF#4**（唯一异步编排，staleness=requestID）
+- [x] `CorrectionPromptBuilder`(systemInstructions byte-identical + few-shot)
+- [x] `FoundationModelsCorrectionProvider`(Core, `#if canImport(FoundationModels)`, @Generable + timeout race)
+- [x] `CorrectionModelRunner` 端口 + `MLXQwenRunner`(Qwen3-0.6B-4bit, enable_thinking:false, temp 0) + `MLXCorrectionProvider`(actor, 状态机/按需载/闲卸双保险) + `TypoFreeModelDownloader`(HF→hf-mirror, App Support 缓存) [LLM]
+- [x] `MLXModelManager` + `LLMProviderFactory` + `LLMBackendResolver`(FM→MLX→Null) [LLM]
+- [x] provider 隔离硬契约断言：`correct()` 期间不占 MainActor（并发风险 #2）
+- [x] 测试 [Core]：门 5 例(接受同音/拒 latin/拒长度/拒幻觉/**多音字不误拒**) + coordinator(防抖单次/clause 跳防抖/新键取消/stale-drop by requestID/超时→nil/卡死不死锁) 全用 `FakeModelRunner`+fake provider
+- [x] 测试 [LLM]：`LLMBackendResolver` fake 两分支零网络；`MLXModelManagerLiveTests` 门控 `TYPOFREE_MLX_LIVE_TEST=1`(真下载+`additionalContext["enable_thinking"]==false`+无`<think>`)
 - **交付**：整个异步修正状态机零 Metal 可测；MLX 真路径集成测试可选跑。**验证**：`swift test`(Core+LLM) + `TYPOFREE_MLX_LIVE_TEST=1 swift test`(dev box)。**依赖**：M3。
+- **交付确认 2026-07-18**：`TypoFreeCore` `swift test`（`rm -rf .build` 净构建）**107/107 绿**（M0-M3 的 75 + M4 新增 32），零 warning。`TypoFreeLLM` `swift test` **18/18 绿**（17 跑 + 1 门控 live skip），零 warning（MLX/HubApi 的 `CoreData: NSXPCConnection failed` 是 sandbox 噪声非失败）。新增文件：Core `LLM/{CorrectionTypes,LLMCorrectionProvider,CorrectionValidator,CorrectionPromptBuilder,CorrectionCoordinator,FoundationModelsProvider}.swift`（+重写 `NullProvider.swift`）；LLM `{CorrectionModelRunner,TypoFreeModelDownloader,MLXModelManager,MLXQwenRunner,MLXCorrectionProvider,LLMProviderFactory}.swift`（删 `TypoFreeLLMScaffold.swift`）。测试：Core `LLMTestSupport/CorrectionValidatorTests/CorrectionCoordinatorTests/CorrectionPromptBuilderTests/NullProviderTests/FoundationModelsProviderTests.swift`（删 `NullProviderPlaceholderTests.swift`）；LLM `LLMTestSupport/MLXCorrectionProviderTests/LLMBackendResolverTests/MLXModelManagerLiveTests.swift`（删 scaffold test）。
+- **M4 决策记录（DECISIONS>DESIGN 冲突处 + additive 签名，非违规偏离）**：
+  1. **prompt userPrompt 尾行**：DECISIONS「port v3 verbatim」胜 DESIGN §2.4 字面。用 v3 的 `…\n候选:<engineBest>\n输出:`（非 DESIGN 的 `…\n只输出修正后的句子。`）。few-shot = 真 user/assistant chat turns（v3 shape）。
+  2. **D12 门 = 逐字命中率**（非 `canRead` 全或无）：`命中率≥minHomophoneRatio(0.5)`，锚 `rawPinyin` codes，`readings(of:)` 任一读音。5 例全过；多音字用真 `readings.bin`（银**行**=hang 非首读 xing、得=dei 非首读 de）证明多读音数据源修好。
+  3. **additive 构造参数**（DESIGN 签名的超集，默认值保持原调用点有效）：`MLXQwenRunner.init` 加 `modelID/promptBuilder/cacheDirectory/mirrorHost`（+ `init(manager:)` 供 factory 共享同一 `MLXModelManager`，避免两处各载一份权重）；`MLXModelManager.init` 加 `downloader/promptBuilder/gpuCacheLimitBytes`；`LLMBackendResolver.resolve` 加默认 `promptBuilder`。均为 additive，`MLXQwenRunner()`/`resolve(mlxManager:preference:)` 原样可用。
+  4. **`Downloader` 是本仓自定义端口**（非 swift-transformers 的 `Downloader`）——`ensureModel`/`hasLocalModel`，探测顺序 app 缓存→`~/.cache/huggingface/hub`→下载(HF→hf-mirror)。
+  5. **`CorrectionPromptBuilder.swift`**：DESIGN §1 文件树未显式列它（列在 §2.4 接口里），落 `LLM/` 下；FM(Core)+MLX(LLM) 共用，故必须在 Core。
+  6. **`ChatSession` 非 Sendable**：`MLXModelManager.run` 的 session 构造+`respond` 挪进 `nonisolated static func generate(…)`（只收 Sendable 参数：`ModelContainer`/`[Shot]`/String/Int），不跨 actor 边界（Swift 6 strict-concurrency）。`enable_thinking:false` 抽成 `static let thinkingDisabledContext` 供断言。
+- **M4 live 测试环境限制（非代码缺陷，给 M5/M9）**：`TYPOFREE_MLX_LIVE_TEST=1`（+ 新增 `TYPOFREE_MLX_CACHE_DIR` 可指向预置权重，本次用 VoxInk assetpack 的完整 Qwen3-0.6B-4bit 做 symlink 种子避开下载）跑到 **MLX Metal 边界即挂**：`MLX error: Failed to load the default metallib`——`.build` 树内**根本没有 default.metallib**，mlx-swift 的 Metal shader 库在 `swift test` CLI 下不产出/不打包（需 app bundle）。下载探测 + config/tokenizer 载入路径**已验证可用**（用本地权重零下载）；真 GPU 推理只能在 M5+ 的 Xcode app target 里验（那时 metallib 正常打包）。`swift test` 默认仍绿（live 被门控 skip）。
 
 ## M5 — app shell：IMK controller + 候选窗 + 异步 slot#1 `[Shell]` (dep M4)
 - [ ] `TypoFree.xcodeproj`（显式 PBXFileReference/PBXGroup、两个 XCLocalSwiftPackageReference、`SWIFT_VERSION=6`、`MACOSX_DEPLOYMENT_TARGET=26.0`、**controller 无 @objc 改名**）—— 首建用 Xcode "Add Local Package…"

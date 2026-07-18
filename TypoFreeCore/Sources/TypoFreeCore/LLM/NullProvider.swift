@@ -1,19 +1,17 @@
-// M0 scaffold placeholder.
-//
-// The real `NullProvider` (DESIGN.md §2.4) conforms to the unified
-// `LLMCorrectionProvider` protocol alongside `CorrectionRequest` /
-// `CorrectionResult` / `LLMBackendID` / `LLMProviderAvailability` — all of
-// that lands in M4 (tasks.md §M4, MF#3) together with the D12 validation
-// gate and `CorrectionCoordinator`.
-//
-// This stub exists only so the `LLM/` module location + async/Sendable
-// plumbing compile and are exercised by a green swift test before M4
-// replaces it. It already honors the one contract that matters early:
-// "no correction" is signaled by `nil`, never by fabricating text — Candidate
-// #1 stays `engineBest`.
-public struct NullProvider: Sendable {
+// NullProvider — the always-available backend that always declines. DESIGN.md
+// §2.4. When it is the active provider, Candidate #1 = `engineBest` and the LLM
+// feature is silently inert. Crucially it returns `nil`, never `engineBest`:
+// "no correction" is signaled by declining, so the coordinator's one gate + the
+// slot#1 state machine (M5) stay uniform across all backends.
+public struct NullProvider: LLMCorrectionProvider {
+    // A struct has no isolation, so a plain `let` already satisfies the
+    // protocol's `nonisolated var id` requirement.
+    public let id: LLMBackendID = .null
+
     public init() {}
 
-    /// Stand-in for the eventual `correct(_:) async -> CorrectionResult?`.
-    public func correct() async -> String? { nil }
+    public func availability() async -> LLMProviderAvailability { .ready }
+    public func prewarm() async {}
+    public func correct(_ request: CorrectionRequest) async -> CorrectionResult? { nil }
+    public func releaseResources() async {}
 }
