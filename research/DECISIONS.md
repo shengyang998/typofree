@@ -19,6 +19,15 @@
 - **Dev/build machine**: this box = MacBook Pro M2 Pro, 32 GB, macOS 26.4.1, Xcode 26.4, Swift 6.3. Builds + MLX testing happen here; the 8 GB ceiling is the design constraint, not the dev box.
 - **Verified on dev machine (2026-07-18)**: `SystemLanguageModel.default.availability == .unavailable(.appleIntelligenceNotEnabled)`, system locale `zh_CN`, languages `zh-Hans-CN`. ⇒ **FoundationModels is NOT testable on the dev machine.** MLX is the only locally-exercisable backend. Design so FM is optional and gracefully absent; all local testing targets the MLX path.
 
+## MLX bake-off results (2026-07-18) — OVERRIDES any older fixed "Qwen3-0.6B" model choice below/elsewhere
+Live-tested on dev box (scripts + full matrix: `research/prompt_bakeoff/RESULTS.md`). Binding outcomes for M4/M8:
+- **Model is a config, not a constant.** `MLXQwenRunner`/model manager take a model spec {id, localPath?}; ship two presets:
+  - **quality (default when installed RAM ≥ 16GB): `mlx-community/Qwen2.5-1.5B-Instruct-4bit`** — 4/7 net corrections after gate, zero format breakage, 600-730ms steady on M2 Pro (~1.0-1.1GB while loaded).
+  - **light (default when RAM < 16GB, i.e. the 8GB target): `mlx-community/Qwen3-0.6B-4bit`** — catches word-level typos only (加做客/以经), noisy but gate-safe, ~500-650MB loaded. Settings picker lets user switch (M8).
+- **Prompt shape (CorrectionPromptBuilder)**: minimal system rules + **few-shot as real user/assistant chat turns** (the v3 shape in `research/prompt_bakeoff/typofree_prompt_test_v3.py` — port it verbatim). NO category-list rules, NO two-step diagnose format, **NEVER enable thinking** (Qwen3 thinking = 11s+/call; Qwen3 no-think 1.7B is uselessly conservative — do not use Qwen3-1.7B at all).
+- **Post-processing before the D12 gate**: strip trailing added punctuation (。!?) not present in engineBest, take first line only. Gate rejections are NORMAL operation (they absorb the models' rewrite failures) — count them in logs, don't treat as errors.
+- **Local weights reuse (downloader must probe before downloading)**: complete Qwen3-0.6B-4bit copies exist in VoxInk assetpacks (`labs/VoxInk/build/VoxInk-1.0.0-26.xcarchive/Products/OnDemandResources/*qwen*/`); Qwen2.5-1.5B-Instruct-4bit + Qwen3-1.7B-4bit are fully downloaded in `~/.cache/huggingface/hub`. Probe order: app cache → `~/.cache/huggingface/hub` → `~/Documents/huggingface` → download (HF → hf-mirror). `~/Documents/huggingface` currently holds empty stubs only — do not trust dir presence, verify a `*.safetensors` exists.
+
 ## LLM backend (Q2 answer = "MLX 为主 + FM 自动探测") — OVERRIDES EXPLORE.md
 - **MLX is v1 IN, PRIMARY, load-bearing** (EXPLORE.md had it OUT/deferred — overridden).
 - Default backend resolution at runtime, all behind `LLMCorrectionProvider` protocol:
