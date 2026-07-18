@@ -23,6 +23,7 @@
 		B2000210 /* AXContextReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000110; };
 		B2000211 /* ContextReadLadder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000111; };
 		B2000212 /* SecureInputMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000112; };
+		B2000213 /* LearningLoopWiring.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000113; };
 		B200020D /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010D; };
 		B200020E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010E; };
 		B2000501 /* TypoFreeCore in Frameworks */ = {isa = PBXBuildFile; productRef = B2000401 /* TypoFreeCore */; };
@@ -47,6 +48,7 @@
 		B2000110 /* AXContextReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXContextReader.swift; sourceTree = "<group>"; };
 		B2000111 /* ContextReadLadder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextReadLadder.swift; sourceTree = "<group>"; };
 		B2000112 /* SecureInputMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureInputMonitor.swift; sourceTree = "<group>"; };
+		B2000113 /* LearningLoopWiring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningLoopWiring.swift; sourceTree = "<group>"; };
 		B200010D /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		B200010E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B2000120 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				B2000110 /* AXContextReader.swift */,
 				B2000111 /* ContextReadLadder.swift */,
 				B2000112 /* SecureInputMonitor.swift */,
+				B2000113 /* LearningLoopWiring.swift */,
 			);
 			path = Context;
 			sourceTree = "<group>";
@@ -239,6 +242,7 @@
 				B2000210 /* AXContextReader.swift in Sources */,
 				B2000211 /* ContextReadLadder.swift in Sources */,
 				B2000212 /* SecureInputMonitor.swift in Sources */,
+				B2000213 /* LearningLoopWiring.swift in Sources */,
 				B200020D /* MenuBarView.swift in Sources */,
 				B200020E /* SettingsView.swift in Sources */,
 			);

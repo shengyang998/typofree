@@ -116,6 +116,17 @@ public actor UserDictStore {
         return boostUpdate(keySeq: c.keySeq, word: c.word, count: newCount)
     }
 
+    /// Record a reuse of a word the base lexicon ALREADY contains under `keySeq`:
+    /// bump only its `words` boost count. It is NOT out-of-vocabulary, so no
+    /// `pending_oov` ledger row is written (that is the "OOV not already in
+    /// lexicon" filter's known-word branch). Returns a `BoostUpdate` once it
+    /// reaches the ≥2 promotion threshold, else nil.
+    @discardableResult
+    public func recordKnownWordReuse(keySeq: String, word: String) throws -> BoostUpdate? {
+        let newCount = try bumpWord(keySeq: keySeq, word: word)
+        return boostUpdate(keySeq: keySeq, word: word, count: newCount)
+    }
+
     /// Append a forensic learning event. Spans are truncated to the ≤20-char cap.
     public func recordEvent(kind: LearningEventKind, appBundleId: String?,
                             spanBefore: String?, spanAfter: String?) throws {
