@@ -8,11 +8,15 @@
 ---
 
 ## M0 — 脚手架 `[Core]` (parallelizable)
-- [ ] 建两个 SPM 包目录 + `Package.swift`：`TypoFreeCore`（零依赖 + `CSQLite` system-library shim）、`TypoFreeLLM`（path dep Core + 钉 `mlx-swift-lm 2.31.3` + `swift-transformers 1.2.0`）。**MF#9**（统一目录根 `labs/typofree/TypoFreeCore`、`TypoFreeLLM`、`TypoFree.xcodeproj`、`TypoFree/`）
-- [ ] `CSQLite/module.modulemap` + `shim.h`（`#include <sqlite3.h>`, `link "sqlite3"`）
-- [ ] 符号链接 `Resources/lexicon.bin` → `../../../../data/lexicon.bin`（`readings.bin` 待 M2 产出后补链）
-- [ ] 占位 `SchemeDefinition` + `NullProvider` + `Fixtures/mini-lexicon.bin`（手写小 TFX1）打通 `swift test`
+- [x] 建两个 SPM 包目录 + `Package.swift`：`TypoFreeCore`（零依赖 + `CSQLite` system-library shim）、`TypoFreeLLM`（path dep Core + 钉 `mlx-swift-lm 2.31.3` + `swift-transformers 1.2.0`）。**MF#9**（统一目录根 `labs/typofree/TypoFreeCore`、`TypoFreeLLM`、`TypoFree.xcodeproj`、`TypoFree/`）— swift-tools-version 用 **6.2**（非 DESIGN 原文 6.1）,见下方 deviation 记录
+- [x] `CSQLite/module.modulemap` + `shim.h`（`#include <sqlite3.h>`, `link "sqlite3"`）— 已用 `@testable import` 单测实链（`sqlite3_libversion()`）,证真 link 不只是 header 解析
+- [x] 符号链接 `Resources/lexicon.bin` → `../../../../data/lexicon.bin`（`readings.bin` 待 M2 产出后补链）— **方向已反转**（见下方 deviation 记录）：真实字节现在落在 `TypoFreeCore/Sources/TypoFreeCore/Resources/lexicon.bin`,`data/lexicon.bin` 反过来是指向它的符号链接
+- [x] 占位 `SchemeDefinition` + `NullProvider` + `Fixtures/mini-lexicon.bin`（手写小 TFX1）打通 `swift test`
 - **交付**：`cd TypoFreeCore && swift test` 绿（占位）。**验证**：CI 无网络跑通。**依赖**：无。
+- **交付确认 2026-07-18**：`TypoFreeCore`: `swift test` 7/7 绿（含新增的 CSQLite 实链测试 + lexicon.bin 真读取测试）。`TypoFreeLLM`: `swift build` 绿,`mlx-swift-lm` 精确钉住 `2.31.3`(无需降级),`swift-transformers` 解出 `1.2.1`(`.upToNextMinor(from:"1.2.0")` 语义内)。
+- **M0 deviation 1（技术性,非设计决策）**：`swift-tools-version` 从 DESIGN.md §1 原文 `6.1` 改为 `6.2`。`platforms: [.macOS(.v26)]` 的 `.v26` 常量在本机 toolchain(Xcode 26.4 / Swift 6.3)上要求 PackageDescription **6.2**（`6.1` 编译期报 `'v26' is unavailable`,note 明确指向 6.2）。两个包都已改。
+- **M0 deviation 2（发现 + 修复的 correctness bug，非设计决策）**：`Resources/lexicon.bin` 若按 DESIGN.md §1 原文那样做「从 Resources 指向 data 的相对符号链接」，在 `swift build`/`swift test` 下**会产出一个死链接**——SwiftPM 的资源拷贝把符号链接按原相对目标字符串原样复制（不是解引用复制字节），而 `.build/<triple>/<config>/*.bundle/` 的嵌套深度和源码树不一样，同一个 `../../../../` 在新位置解不到 `data/`（`realpath`/`head` 实测复现 `No such file or directory`，`swift build` 却报 success——纯从 log 看不出问题）。修法：**反转方向**——真实字节移到 `TypoFreeCore/Sources/TypoFreeCore/Resources/lexicon.bin`（git 正常追踪的二进制文件，任何拷贝机制、任何嵌套深度都能正常工作，M5 塞进 Xcode app target 后同理不会碎），`data/lexicon.bin` 变成指向它的符号链接（`data/lexicon.bin -> ../TypoFreeCore/Sources/TypoFreeCore/Resources/lexicon.bin`）。`build_lexicon.py` 的 `--out-bin` 默认值不用改——`Path.open("wb")` 写入时会跟随符号链接，重新跑 build 脚本会直接把新字节写进真实文件。新增 `LexiconResourceCheck`(Core, internal) + `LexiconResourceCheckTests`(`@testable import`) 通过 `Bundle.module` 真实读取资源字节回归锁定这个修复。详见 `data/README.md` 顶部的对应说明。
+- **M0 发现（给 M4 的重要提示，非 deviation——Package.swift 依赖声明本身完全照抄 DESIGN.md 没改）**：`swift-transformers 1.2.1` 的 `Transformers` 是**纯 product 级聚合**（`Package.swift`: `.library(name: "Transformers", targets: ["Tokenizers", "Generation", "Models"])`），**不是可 import 的模块**——`import Transformers` 会报 `error: no such module 'Transformers'`。真正能 import 的是 `Tokenizers` / `Generation` / `Models`（以及独立的 `Hub`）。M4 写 `MLXQwenRunner`/tokenizer 相关代码时用 `import Tokenizers` 等具体子模块，`.product(name: "Transformers", package: "swift-transformers")` 这条 target 依赖声明本身留着不用动（它确实把三个子 target 都链进来了，只是没有同名 umbrella 模块）。
 
 ## M1 — Scheme + Decoder `[Core]` (parallelizable, dep M0)
 - [ ] `InitialClass`(5 类) + `SchemeDefinition`(`schemeId:UInt16=1`) + `FlypyScheme.flypy`（全部 Appendix A：21 声母键、`v/i/u→zh/ch/sh`、joint `finalTable`、35 条零声母表）。**MF#5**（统一为一套 Scheme/Decoder，`schemeId` == TFX1 header）

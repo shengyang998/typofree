@@ -8,6 +8,21 @@ file's module docstring for the exact binary format and the full
 encode-table derivation/citations; this README covers sources, licenses,
 attribution, how to rebuild, and known limitations.
 
+**`data/lexicon.bin` is a symlink**, not the physical file (added M0). The
+real, git-tracked bytes live at
+`../TypoFreeCore/Sources/TypoFreeCore/Resources/lexicon.bin` — SwiftPM's
+resource-copy step preserves symlinks-as-symlinks with their original
+relative target string instead of dereferencing them, so a symlink pointing
+*out* of the SPM resource directory (the original `Resources/lexicon.bin ->
+../../../../data/lexicon.bin` arrangement) goes dangling once copied into a
+`.build/<triple>/<config>/*.bundle/` (or, later, an Xcode-embedded) output
+directory at a different nesting depth (confirmed empirically: `swift build`
+reports success, but the copied symlink 404s at `open()`). Flipping the
+relationship keeps `data/` as this documented canonical build-output path —
+`build_lexicon.py`'s `--out-bin` default is unchanged and still works
+because `Path.open("wb")` follows symlinks on write — while the SPM package
+only ever sees a plain file, which survives any copy depth.
+
 ## Sources
 
 | File | Upstream | Commit (pinned by content, re-verified 2026-07-18) | License | Role |
