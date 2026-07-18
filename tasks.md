@@ -75,10 +75,10 @@
 - [ ] `Info.plist`(LSUIElement=true/LSBackgroundOnly=false/NSPrincipalClass/InputMethodConnectionName/ControllerClass/ComponentInputModeDict) + `TypoFree.entitlements`(app-sandbox=false)
 - [ ] `main.swift`(argv 分发) + `TypoFreeApp`(非 @main) + `AppDelegate`(IMKServer + 启动 resolve provider) + `TypoFreeInstaller`(TIS register/enable/select/quit)
 - [ ] `TypoFreeInputController: IMKInputSessionController` + `IMKTextClientAdapter`(IMKTextInput→TextClient) + `NSEvent+KeyEvent` + `InputSessionCache`(weak-LRU cap5, 仅组合态重接)
-- [ ] `InputSession`(Core/Session, @MainActor 状态机, IMK-free)：路由(a-z/1-9/Space/Return/Backspace/Escape/Command/孤 Shift 中英切换) + commit 内容模型(显式=recommended/隐式=engineBest/Return=verbatim) + 订阅 coordinator.events 按 requestID apply。**MF#4**（不再自持 gen-token+Task.sleep）
+- [x] `InputSession`(Core/Session, @MainActor 状态机, IMK-free)：路由(a-z/1-9/Space/Return/Backspace/Escape/Command/孤 Shift 中英切换) + commit 内容模型(显式=recommended/隐式=engineBest/Return=verbatim) + 订阅 coordinator.events 按 requestID apply。**MF#4**（不再自持 gen-token+Task.sleep）
 - [ ] `CandidatePanel: NSPanel(.nonactivatingPanel)` + 自绘 `CandidateBarView: NSView.draw(_:)`(固定 slot 几何、slot#1 无 reflow、`.computing/.landed/.unavailable`)。**MF#11**（删 scaffold SwiftUI CandidateView）
 - [ ] 并发契约实现：MainActor 同步建 snapshot（快 IMKTextInput 路径 <5ms）→ coordinator off-main → 回 MainActor apply（并发风险 #1：AX 不上热路径）
-- [ ] 测试 [Core, InputSession 用 mock]：路由/Space 接受/Return verbatim/异步 slot#1 provisional→landed 不 reflow/stale by requestID/NullProvider→unavailable/`handle` 同步 <5ms/LRU 重接/**零声母陷阱真引擎集成**(歪/为/万/王/要/有/羊/用 commit 正确)
+- [x] 测试 [Core, InputSession 用 mock]：路由/Space 接受/Return verbatim/异步 slot#1 provisional→landed 不 reflow/stale by requestID/NullProvider→unavailable/`handle` 同步 <5ms/LRU 重接/**零声母陷阱真引擎集成**(歪/为/万/王/要/有/羊/用 commit 正确)
 - [ ] `scripts/dev.sh` + `make-dev-cert.sh`
 - **交付**：真机可切到小鹤双拼打字、slot#2 即时 slot#1 异步不卡。**验证**：dev.sh 装 → System Settings 加 → TextEdit 打字。**依赖**：M4。
 
@@ -100,6 +100,7 @@
 
 ## M8 — Settings / onboarding / 模型下载 UX `[Shell]` (dep M7)。**MF#12**
 - [ ] `BackendPickerView`(probeBackends 列 FM/MLX/Off + 改选热切换 `coordinator.setProvider` 先释放旧 MLX)
+- [ ] **ModelPreset 双预设 + RAM 感知默认**(bake-off 拍板,M4 只做了 modelID 参数化没做策略):quality=`mlx-community/Qwen2.5-1.5B-Instruct-4bit`(默认当 RAM≥16GB)/ light=`mlx-community/Qwen3-0.6B-4bit`(<16GB);UserDefaults 持久化;picker 里可切;displayName 不再硬编码 0.6B
 - [ ] `ModelDownloadView`(下载进度 fraction + 触发/取消 + HF/hf-mirror 显示)
 - [ ] `PermissionView`(AX TCC 弹窗 + 未授权态 + 授权后重查；核心打字不依赖 AX)
 - [ ] `OnboardingView`(System Settings 启用引导 + **首装登出/登入**提示)
@@ -108,6 +109,7 @@
 - **交付**：全部首运行/设置 UX 齐。**验证**：手动走完首装→授权→下载→选后端→清除。**依赖**：M7。
 
 ## M9 — 真机测试 + 两个 spike `[Shell]` (dep M8)
+- [ ] **Spike 0(新增,M4 发现)**:验证 Xcode app bundle 构建产出并包含 mlx 的 `default.metallib`(`find TypoFree.app -name "*.metallib"`)+ 首次真 GPU 推理冒烟(swift test CLI 不产 metallib,MLX 真路径在 M4 只验到 Metal 边界)
 - [ ] **Spike 1**：最小 FM harness 多小时背景 `respond()` → 背景 IME 会不会 `.rateLimited`（DECISIONS §4，决定 FM 降级策略 user-Q2）
 - [ ] **Spike 2**：`imklaunchagent` 托管 `~/Library/Input Methods` bundle 能否拿 AX/TCC 授权（无参考 IME 验过；ad-hoc 签名 TCC 重置用 make-dev-cert.sh 缓解）
 - [ ] 走完 DESIGN §9 手动真机清单（TextEdit/Safari/Messages/密码框/清除/FM-MLX 不可用降级）
