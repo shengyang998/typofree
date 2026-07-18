@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox OFF: IMKit + Accessibility (M6) are incompatible with the
+	     sandbox (DESIGN §0/§7, DECISIONS "Unsandboxed"). AX is granted at runtime
+	     via TCC, not an entitlement key. -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

@@ -71,16 +71,26 @@
 - **M4 live 测试环境限制（非代码缺陷，给 M5/M9）**：`TYPOFREE_MLX_LIVE_TEST=1`（+ 新增 `TYPOFREE_MLX_CACHE_DIR` 可指向预置权重，本次用 VoxInk assetpack 的完整 Qwen3-0.6B-4bit 做 symlink 种子避开下载）跑到 **MLX Metal 边界即挂**：`MLX error: Failed to load the default metallib`——`.build` 树内**根本没有 default.metallib**，mlx-swift 的 Metal shader 库在 `swift test` CLI 下不产出/不打包（需 app bundle）。下载探测 + config/tokenizer 载入路径**已验证可用**（用本地权重零下载）；真 GPU 推理只能在 M5+ 的 Xcode app target 里验（那时 metallib 正常打包）。`swift test` 默认仍绿（live 被门控 skip）。
 
 ## M5 — app shell：IMK controller + 候选窗 + 异步 slot#1 `[Shell]` (dep M4)
-- [ ] `TypoFree.xcodeproj`（显式 PBXFileReference/PBXGroup、两个 XCLocalSwiftPackageReference、`SWIFT_VERSION=6`、`MACOSX_DEPLOYMENT_TARGET=26.0`、**controller 无 @objc 改名**）—— 首建用 Xcode "Add Local Package…"
-- [ ] `Info.plist`(LSUIElement=true/LSBackgroundOnly=false/NSPrincipalClass/InputMethodConnectionName/ControllerClass/ComponentInputModeDict) + `TypoFree.entitlements`(app-sandbox=false)
-- [ ] `main.swift`(argv 分发) + `TypoFreeApp`(非 @main) + `AppDelegate`(IMKServer + 启动 resolve provider) + `TypoFreeInstaller`(TIS register/enable/select/quit)
-- [ ] `TypoFreeInputController: IMKInputSessionController` + `IMKTextClientAdapter`(IMKTextInput→TextClient) + `NSEvent+KeyEvent` + `InputSessionCache`(weak-LRU cap5, 仅组合态重接)
+- [x] `TypoFree.xcodeproj`（显式 PBXFileReference/PBXGroup、两个 XCLocalSwiftPackageReference、`SWIFT_VERSION=6`、`MACOSX_DEPLOYMENT_TARGET=26.0`、**controller 无 @objc 改名**）—— 手写 objectVersion 77 + 经典显式 refs（非 GUI）；IMKSwift 远程钉 `exactVersion 26.06.02`
+- [x] `Info.plist`(LSUIElement=true/LSBackgroundOnly=false/NSPrincipalClass/InputMethodConnectionName/ControllerClass/ComponentInputModeDict) + `TypoFree.entitlements`(app-sandbox=false)
+- [x] `main.swift`(argv 分发) + `TypoFreeApp`(非 @main) + `AppDelegate`(IMKServer + 启动 resolve provider) + `TypoFreeInstaller`(TIS register/enable/select/quit/verify)
+- [x] `TypoFreeInputController: IMKInputSessionController` + `IMKTextClientAdapter`(IMKTextInput→TextClient) + `NSEvent+KeyEvent` + `InputSessionCache`(weak-LRU cap5, 仅组合态重接)
 - [x] `InputSession`(Core/Session, @MainActor 状态机, IMK-free)：路由(a-z/1-9/Space/Return/Backspace/Escape/Command/孤 Shift 中英切换) + commit 内容模型(显式=recommended/隐式=engineBest/Return=verbatim) + 订阅 coordinator.events 按 requestID apply。**MF#4**（不再自持 gen-token+Task.sleep）
-- [ ] `CandidatePanel: NSPanel(.nonactivatingPanel)` + 自绘 `CandidateBarView: NSView.draw(_:)`(固定 slot 几何、slot#1 无 reflow、`.computing/.landed/.unavailable`)。**MF#11**（删 scaffold SwiftUI CandidateView）
-- [ ] 并发契约实现：MainActor 同步建 snapshot（快 IMKTextInput 路径 <5ms）→ coordinator off-main → 回 MainActor apply（并发风险 #1：AX 不上热路径）
+- [x] `CandidatePanel: NSPanel(.nonactivatingPanel)` + 自绘 `CandidateBarView: NSView.draw(_:)`(固定 slot 几何、slot#1 无 reflow、`.computing/.landed/.unavailable`)。**MF#11**（删 scaffold SwiftUI CandidateView）
+- [x] 并发契约实现：MainActor 同步建 snapshot（快 IMKTextInput 路径 <5ms）→ coordinator off-main → 回 MainActor apply（并发风险 #1：AX 不上热路径）
 - [x] 测试 [Core, InputSession 用 mock]：路由/Space 接受/Return verbatim/异步 slot#1 provisional→landed 不 reflow/stale by requestID/NullProvider→unavailable/`handle` 同步 <5ms/LRU 重接/**零声母陷阱真引擎集成**(歪/为/万/王/要/有/羊/用 commit 正确)
-- [ ] `scripts/dev.sh` + `make-dev-cert.sh`
+- [x] `scripts/dev.sh` + `make-dev-cert.sh`
 - **交付**：真机可切到小鹤双拼打字、slot#2 即时 slot#1 异步不卡。**验证**：dev.sh 装 → System Settings 加 → TextEdit 打字。**依赖**：M4。
+- **交付确认 2026-07-18**：`TypoFreeCore` `swift test` **129/129 绿**（M0-M4 的 107 + M5 新增 22 个 `InputSessionTests`：路由/Space 接受/Return verbatim/异步 slot#1 provisional→landed 无 reflow/stale-by-requestID/NullProvider→unavailable/handle 同步 <5ms(实测 max 0.5-50ms 内)/LRU 重接/零声母陷阱真引擎 歪为万王要有羊用 commit 正确），零 warning。`xcodebuild -scheme TypoFree -configuration Debug build` **BUILD SUCCEEDED**（app-shell 14 源文件 + 3 SPM 产品：本地 `TypoFreeCore`/`TypoFreeLLM` + 远程 `IMKSwift@26.06.02`；MLX 全依赖图首次编译通过，Cmlx C++ 全量编译）。**metallib（给 M9 Spike 0 的提前结论）**：Xcode app bundle **含** `Contents/Resources/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib`——证实 M4 那条"swift-test CLI 不产 metallib"是 CLI 限制，**app-target 构建正常产出**，MLX 真 GPU 路径在 app 里就位（Spike 0 构建侧已过，剩首次真推理冒烟归 M9）。词库 `lexicon.bin`+`readings.bin` 经 `TypoFreeCore_TypoFreeCore.bundle` 打进 app，`Bundle.module` 可解。**安装**：`scripts/dev.sh` 全程跑通——build→ad-hoc 签(`com.soleilyu.typofree`, adhoc)→killall→复制到 `~/Library/Input Methods/TypoFree.app`→`TISRegisterInputSource` 返回 **0(noErr)**→enable→`--verify`。**未 select**（用户在本机打字，不劫持活动输入源）。
+- **M5 首装 TIS 限制（已记录=用户步骤，非缺陷）**：`TISRegisterInputSource` 返回 0，但 source 尚未出现在 `TISCreateInputSourceList`（`--verify` 确定性回报 `NOT registered`，exit 1）——`imklaunchagent` 无运行期强制 rescan API，**首装需登出/登入一次**后 source 才在 System Settings ▸ Keyboard ▸ Input Sources 可见（DESIGN §7 已预言）。用户步骤：①登出/登入 ②System Settings 加 "TypoFree(小鹤双拼)" ③输入菜单选它 ④TextEdit 打字冒烟（`nihc`→你好、`nihcuijp`→你好世界、空格上屏、回车原码上屏、孤 Shift 切中英）。
+- **M5 决策记录（DESIGN 未锁死处 / 技术性，非违规偏离）**：
+  1. **xcodeproj = objectVersion 77 + 经典显式 refs**（非 synchronized root group）：77 保证 `XCLocalSwiftPackageReference` 支持；显式 refs 避开 synchronized group 把 Info.plist 塞进 Copy-Bundle-Resources 的坑（Info.plist 只经 `INFOPLIST_FILE`）。远程只钉 IMKSwift（`exactVersion 26.06.02`，GitHub 已核实真 tag）；mlx-swift-lm/swift-transformers 经本地 `TypoFreeLLM` 传递解析，不在 xcodeproj 里重列。
+  2. **GENERATE_INFOPLIST_FILE=NO**（DESIGN 表原文"YES+merge"）：既有 Info.plist 是完整（非最小）手写，merge 会重复键；改用完整 plist + NO。`InputMethodServerDelegateClass` 保留=Controller 类（squirrel 真 plist 同款，验证模块限定名 `TypoFree.TypoFreeInputController` 路线）。
+  3. **ENABLE_DEBUG_DYLIB=NO**：Xcode 26 默认把 Debug 拆成 stub executor + `.debug.dylib`，imklaunchagent 自启时可能加载不到 dylib；IME 必须能自启，关掉产单一可执行。
+  4. **-skipPackagePluginValidation**：mlx-swift 带 build-tool 插件 "CudaBuild"，CLI 构建否则弹交互信任框卡死；dev.sh + 构建命令都带此 flag。
+  5. **provider 异步热切换**：coordinator 起手 `NullProvider`（打字即刻可用、slot#1 gate 过时显 `.computing`），`AppEnvironment` 后台 `LLMProviderFactory.makeProvider(preference:.auto)`（dev box=FM 不可用→MLX）完成后 `coordinator.setProvider` 换入；model id 走 `TypoFreeModelID` UserDefaults 键（默认=`MLXModelManager` 默认 `mlx-community/Qwen3-0.6B-4bit`），M8 挂 picker。
+  6. **`IMKContextReader` = M5 快路径占位**：只读 IMKTextInput this-sentence（<5ms），`isSecureContext=false`；真 AX ladder + secure-field guard 归 M6（DESIGN §2.7）。学习 `commitObserver`/overlay 归 M7，M5 传 `nil` + `.empty`。
+  7. **`InputSessionCache` 落在 Core**（DESIGN §1 文件树把它挂 app-shell `IMK/`）：它是纯 `Int→InputSession` LRU、无 IMKit，故随 InputSession 状态机一起放 Core/Session 可单测（IMKSwift README §3 同款 pure-Swift LRU 模式）；app-shell 只持一个共享实例。
 
 ## M6 — 上下文 reader + AX + secure-field `[Shell]` (dep M5)
 - [ ] Core 纯逻辑：`SecureFieldGuard`(动态`IsSecureEventInputEnabled`+静态标记表、短 token 整词边界) + `IdentitySignature`/`RoundedFrame`/`FieldSignature` + `SendDetectionSession` 纯状态机 + `ContextSnapshot`/tier/suppression。**MF#6**（AX 触碰代码全出 Core，Core 只留纯值+纯逻辑）

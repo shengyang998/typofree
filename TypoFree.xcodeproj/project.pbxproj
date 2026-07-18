@@ -1,0 +1,394 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B2000201 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000101; };
+		B2000202 /* LaunchCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000102; };
+		B2000203 /* TypoFreeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000103; };
+		B2000204 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000104; };
+		B2000205 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000105; };
+		B2000206 /* TypoFreeInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000106; };
+		B2000207 /* TypoFreeInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000107; };
+		B2000208 /* IMKTextClientAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000108; };
+		B2000209 /* NSEvent+KeyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000109; };
+		B200020A /* CandidatePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010A; };
+		B200020B /* CandidateBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010B; };
+		B200020C /* IMKContextReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010C; };
+		B200020D /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010D; };
+		B200020E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200010E; };
+		B2000501 /* TypoFreeCore in Frameworks */ = {isa = PBXBuildFile; productRef = B2000401 /* TypoFreeCore */; };
+		B2000502 /* TypoFreeLLM in Frameworks */ = {isa = PBXBuildFile; productRef = B2000402 /* TypoFreeLLM */; };
+		B2000503 /* IMKSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B2000403 /* IMKSwift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B2000101 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B2000102 /* LaunchCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchCommand.swift; sourceTree = "<group>"; };
+		B2000103 /* TypoFreeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypoFreeApp.swift; sourceTree = "<group>"; };
+		B2000104 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B2000105 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		B2000106 /* TypoFreeInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypoFreeInstaller.swift; sourceTree = "<group>"; };
+		B2000107 /* TypoFreeInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypoFreeInputController.swift; sourceTree = "<group>"; };
+		B2000108 /* IMKTextClientAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMKTextClientAdapter.swift; sourceTree = "<group>"; };
+		B2000109 /* NSEvent+KeyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSEvent+KeyEvent.swift"; sourceTree = "<group>"; };
+		B200010A /* CandidatePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatePanel.swift; sourceTree = "<group>"; };
+		B200010B /* CandidateBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateBarView.swift; sourceTree = "<group>"; };
+		B200010C /* IMKContextReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMKContextReader.swift; sourceTree = "<group>"; };
+		B200010D /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		B200010E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B2000120 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B2000121 /* TypoFree.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TypoFree.entitlements; sourceTree = "<group>"; };
+		B2000011 /* TypoFree.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TypoFree.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B200000E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000501 /* TypoFreeCore in Frameworks */,
+				B2000502 /* TypoFreeLLM in Frameworks */,
+				B2000503 /* IMKSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B2000000 = {
+			isa = PBXGroup;
+			children = (
+				B2000002 /* TypoFree */,
+				B2000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B2000002 /* TypoFree */ = {
+			isa = PBXGroup;
+			children = (
+				B2000101 /* main.swift */,
+				B2000102 /* LaunchCommand.swift */,
+				B2000103 /* TypoFreeApp.swift */,
+				B2000104 /* AppDelegate.swift */,
+				B2000105 /* AppEnvironment.swift */,
+				B2000106 /* TypoFreeInstaller.swift */,
+				B20000A1 /* IMK */,
+				B20000A2 /* CandidateWindow */,
+				B20000A3 /* Context */,
+				B20000A4 /* UI */,
+				B2000120 /* Info.plist */,
+				B2000121 /* TypoFree.entitlements */,
+			);
+			path = TypoFree;
+			sourceTree = "<group>";
+		};
+		B2000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B2000011 /* TypoFree.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B20000A1 /* IMK */ = {
+			isa = PBXGroup;
+			children = (
+				B2000107 /* TypoFreeInputController.swift */,
+				B2000108 /* IMKTextClientAdapter.swift */,
+				B2000109 /* NSEvent+KeyEvent.swift */,
+			);
+			path = IMK;
+			sourceTree = "<group>";
+		};
+		B20000A2 /* CandidateWindow */ = {
+			isa = PBXGroup;
+			children = (
+				B200010A /* CandidatePanel.swift */,
+				B200010B /* CandidateBarView.swift */,
+			);
+			path = CandidateWindow;
+			sourceTree = "<group>";
+		};
+		B20000A3 /* Context */ = {
+			isa = PBXGroup;
+			children = (
+				B200010C /* IMKContextReader.swift */,
+			);
+			path = Context;
+			sourceTree = "<group>";
+		};
+		B20000A4 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B200010D /* MenuBarView.swift */,
+				B200010E /* SettingsView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B2000010 /* TypoFree */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B2000030 /* Build configuration list for PBXNativeTarget "TypoFree" */;
+			buildPhases = (
+				B200000D /* Sources */,
+				B200000E /* Frameworks */,
+				B200000F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TypoFree;
+			packageProductDependencies = (
+				B2000401 /* TypoFreeCore */,
+				B2000402 /* TypoFreeLLM */,
+				B2000403 /* IMKSwift */,
+			);
+			productName = TypoFree;
+			productReference = B2000011 /* TypoFree.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B2000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					B2000010 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+				};
+			};
+			buildConfigurationList = B2000050 /* Build configuration list for PBXProject "TypoFree" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = B2000000;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B2000301 /* XCLocalSwiftPackageReference "TypoFreeCore" */,
+				B2000302 /* XCLocalSwiftPackageReference "TypoFreeLLM" */,
+				B2000303 /* XCRemoteSwiftPackageReference "IMKSwift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B2000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B2000010 /* TypoFree */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B200000F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B200000D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000201 /* main.swift in Sources */,
+				B2000202 /* LaunchCommand.swift in Sources */,
+				B2000203 /* TypoFreeApp.swift in Sources */,
+				B2000204 /* AppDelegate.swift in Sources */,
+				B2000205 /* AppEnvironment.swift in Sources */,
+				B2000206 /* TypoFreeInstaller.swift in Sources */,
+				B2000207 /* TypoFreeInputController.swift in Sources */,
+				B2000208 /* IMKTextClientAdapter.swift in Sources */,
+				B2000209 /* NSEvent+KeyEvent.swift in Sources */,
+				B200020A /* CandidatePanel.swift in Sources */,
+				B200020B /* CandidateBarView.swift in Sources */,
+				B200020C /* IMKContextReader.swift in Sources */,
+				B200020D /* MenuBarView.swift in Sources */,
+				B200020E /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B2000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TypoFree/TypoFree.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TypoFree/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.typofree;
+				PRODUCT_MODULE_NAME = TypoFree;
+				PRODUCT_NAME = TypoFree;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6;
+			};
+			name = Debug;
+		};
+		B2000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TypoFree/TypoFree.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TypoFree/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soleilyu.typofree;
+				PRODUCT_MODULE_NAME = TypoFree;
+				PRODUCT_NAME = TypoFree;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6;
+			};
+			name = Release;
+		};
+		B2000051 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B2000052 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B2000030 /* Build configuration list for PBXNativeTarget "TypoFree" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2000031 /* Debug */,
+				B2000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B2000050 /* Build configuration list for PBXProject "TypoFree" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2000051 /* Debug */,
+				B2000052 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B2000301 /* XCLocalSwiftPackageReference "TypoFreeCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = TypoFreeCore;
+		};
+		B2000302 /* XCLocalSwiftPackageReference "TypoFreeLLM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = TypoFreeLLM;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B2000303 /* XCRemoteSwiftPackageReference "IMKSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/vChewing/IMKSwift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 26.06.02;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B2000401 /* TypoFreeCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TypoFreeCore;
+		};
+		B2000402 /* TypoFreeLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TypoFreeLLM;
+		};
+		B2000403 /* IMKSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B2000303 /* XCRemoteSwiftPackageReference "IMKSwift" */;
+			productName = IMKSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B2000001 /* Project object */;
+}
