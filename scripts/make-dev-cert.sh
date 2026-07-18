@@ -6,13 +6,20 @@
 # grants on every rebuild. Signing each dev build with one stable identity keeps
 # those grants across the build→install→test loop. Run this ONCE.
 #
+# Import strategy: PEM key + cert imported separately. We deliberately do NOT
+# go through PKCS12 — Homebrew OpenSSL 3.x exports p12 with AES/PBKDF2-SHA256
+# defaults that `security import` cannot verify ("MAC verification failed
+# during PKCS 12 import. Wrong password?"). PEM avoids the whole class.
+# openssl is pinned to the system LibreSSL for the same reason.
+#
 # Usage:  scripts/make-dev-cert.sh
 set -euo pipefail
 
 IDENTITY="TypoFree Dev"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+OPENSSL=/usr/bin/openssl
 
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
+if security find-identity -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
 	echo "make-dev-cert.sh: code-signing identity '$IDENTITY' already exists — nothing to do."
 	exit 0
 fi
@@ -33,19 +40,24 @@ extendedKeyUsage = critical, codeSigning
 basicConstraints = critical, CA:false
 EOF
 
-echo "==> Generating self-signed code-signing certificate"
-openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+echo "==> Generating self-signed code-signing certificate (system LibreSSL)"
+"$OPENSSL" req -x509 -newkey rsa:2048 -nodes -days 3650 \
 	-keyout "$TMP/key.pem" -out "$TMP/cert.pem" -config "$TMP/cert.conf" >/dev/null 2>&1
-openssl pkcs12 -export -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
-	-out "$TMP/id.p12" -passout pass:typofree -name "$IDENTITY" >/dev/null 2>&1
 
-echo "==> Importing into the login keychain (allow codesign to use it)"
-security import "$TMP/id.p12" -k "$KEYCHAIN" -P typofree -T /usr/bin/codesign
+echo "==> Importing key + cert into the login keychain (PEM, no PKCS12)"
+security import "$TMP/key.pem" -k "$KEYCHAIN" -T /usr/bin/codesign
+security import "$TMP/cert.pem" -k "$KEYCHAIN"
 
-cat <<EOF
+echo "==> Trusting the certificate for code signing (may pop a password dialog — allow it)"
+if security add-trusted-cert -p codeSign -k "$KEYCHAIN" "$TMP/cert.pem" 2>/dev/null; then
+	echo "    trusted for codeSign."
+else
+	cat <<'NOTE'
+    Could not set trust automatically. One-time manual step:
+    Keychain Access ▸ login ▸ My Certificates ▸ "TypoFree Dev" ▸ Trust ▸
+    Code Signing = Always Trust. Then re-run scripts/dev.sh.
+NOTE
+fi
 
-Imported code-signing identity: "$IDENTITY".
-If codesign later reports it can't use the key, open Keychain Access, find
-"$IDENTITY" under login ▸ My Certificates, and set its trust to
-"Always Trust" for Code Signing. Then re-run scripts/dev.sh.
-EOF
+echo
+echo "Imported code-signing identity: \"$IDENTITY\". Re-run scripts/dev.sh to sign with it."
