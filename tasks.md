@@ -19,10 +19,12 @@
 - **M0 发现（给 M4 的重要提示，非 deviation——Package.swift 依赖声明本身完全照抄 DESIGN.md 没改）**：`swift-transformers 1.2.1` 的 `Transformers` 是**纯 product 级聚合**（`Package.swift`: `.library(name: "Transformers", targets: ["Tokenizers", "Generation", "Models"])`），**不是可 import 的模块**——`import Transformers` 会报 `error: no such module 'Transformers'`。真正能 import 的是 `Tokenizers` / `Generation` / `Models`（以及独立的 `Hub`）。M4 写 `MLXQwenRunner`/tokenizer 相关代码时用 `import Tokenizers` 等具体子模块，`.product(name: "Transformers", package: "swift-transformers")` 这条 target 依赖声明本身留着不用动（它确实把三个子 target 都链进来了，只是没有同名 umbrella 模块）。
 
 ## M1 — Scheme + Decoder `[Core]` (parallelizable, dep M0)
-- [ ] `InitialClass`(5 类) + `SchemeDefinition`(`schemeId:UInt16=1`) + `FlypyScheme.flypy`（全部 Appendix A：21 声母键、`v/i/u→zh/ch/sh`、joint `finalTable`、35 条零声母表）。**MF#5**（统一为一套 Scheme/Decoder，`schemeId` == TFX1 header）
-- [ ] `ShuangpinDecoder.decode/decodeSyllable/encode(syllable:)/encode(tonelessSyllables:)`（正反向，init 内反演反向表 + precondition 单射校验）
-- [ ] 测试：**8 陷阱**(wai→wd…yong→ys) + 常规对照(yu/yuan/yue/yun/wu/aa/er) + 重载键(o/k/l/s/x/v/t) + r=uan/n=iao 条件例外 + 压缩声母 + 非法组合→nil + 反向 encode 往返(你好→nihc、世界→uijp) + 单实例(不受第二 scheme 影响)
+- [x] `InitialClass`(5 类) + `SchemeDefinition`(`schemeId:UInt16=1`) + `FlypyScheme.flypy`（全部 Appendix A：21 声母键、`v/i/u→zh/ch/sh`、joint `finalTable`、35 条零声母表）。**MF#5**（统一为一套 Scheme/Decoder，`schemeId` == TFX1 header）
+- [x] `ShuangpinDecoder.decode/decodeSyllable/encode(syllable:)/encode(tonelessSyllables:)`（正反向，init 内反演反向表 + precondition 单射校验）
+- [x] 测试：**8 陷阱**(wai→wd…yong→ys) + 常规对照(yu/yuan/yue/yun/wu/aa/er) + 重载键(o/k/l/s/x/v/t) + r=uan/n=iao 条件例外 + 压缩声母 + 非法组合→nil + 反向 encode 往返(你好→nihc、世界→uijp) + 单实例(不受第二 scheme 影响)
 - **交付**：decoder 全测过。**验证**：`swift test --filter Scheme`。**依赖**：M0。
+- **交付确认 2026-07-18**：`Scheme/{SchemeDefinition,FlypyScheme,ShuangpinDecoder}.swift` 三文件落地；占位 `SchemeDefinitionPlaceholderTests.swift` 已删，换成 `Tests/TypoFreeCoreTests/SchemeDecoderTests.swift`（7 个 `Scheme*` 测试类）。`swift test --filter Scheme` 21/21 绿；全量 `swift test` 26/26 绿（M0 剩 5 个 + M1 新增 21 个；删掉的是 2 个占位 `SchemeDefinition` 测试）；`rm -rf .build` 净构建零 warning 零 error。`Syllable`/`DecodeResult` 放在 `Scheme/ShuangpinDecoder.swift`（DESIGN §1 文件树名义上把 `Syllable` 挂 Engine/，但 §2.1 与 decoder 同段定义、M1 owns，模块级类型不影响 import；M3 直接消费，可留可搬）。
+- **M1 决策记录（Appendix A 散文 vs rime 真源）**：`finalTable` 按 DESIGN §2.1 强制的 5 类 `InitialClass` 建，数据取自 rime `double_pinyin_flypy.schema.yaml` 的 speller.algebra + translator.preedit_format（Appendix A 自称「逐条模拟 speller.algebra 解码」的真源）。原因：Appendix A 的重载键散文表是有损摘要——(a) 漏了 `dt+s / nl+s → ong`，但 东(ds)/通(ts)/农(ns)/龙(ls) 必须能打；(b) 把 k/l/x 的 A 侧窄化成 {g,k,h,zh,ch,sh}、排除 r/z/c/s，而 5 类模型无法把 r/z/c/s 从 `gkhzh` 里拆出来，rime 本身也是全 `gkhzh` 统一映射（`[gkhvuirzcs]k→uai` 等）。故本实现按 rime：每类内每个第二键解析为唯一 final，类内一致（已逐条验证）。唯一可见效应=非词组合如 `zk` 解成非词拼音 `zuai` 而非 nil（无害，词库永不含）。所有 M1 测试用的都是 rime 与 Appendix A 一致的真实音节。
 
 ## M2 — 词库加载 + 多音字侧车 `[Core]` (dep M1)
 - [ ] `LexiconBlobFormat`（**TFX1** 16B header、`loadUnaligned` 多字节、posting `wordLen→word→logFreq`、`logFreq=ln(1+rawCount)`）。**MF#1**（删 engine 原 `TFLX`，全线用 TFX1）

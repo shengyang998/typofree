@@ -22,7 +22,7 @@ public enum TypoFreeLLMScaffold {
     /// Trivial cross-module reference so `swift build` proves real linkage
     /// against `TypoFreeCore`, not just that the package graph resolves.
     public static func scaffoldSummary() -> String {
-        let schemeId = SchemeDefinition(schemeId: 1, displayName: "小鹤双拼").schemeId
+        let schemeId = FlypyScheme.flypy.schemeId
         return "TypoFreeLLM scaffold OK (Core schemeId=\(schemeId))"
     }
 }
