@@ -18,9 +18,8 @@ let package = Package(
             name: "TypoFreeCore",
             dependencies: ["CSQLite"],
             resources: [
-                .copy("Resources/lexicon.bin")
-                // Resources/readings.bin (TFXR v1 multi-reading sidecar) is
-                // symlinked + added here in M2, once build_lexicon.py produces it.
+                .copy("Resources/lexicon.bin"),
+                .copy("Resources/readings.bin")
             ]
         ),
         .testTarget(

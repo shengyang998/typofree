@@ -27,14 +27,15 @@
 - **M1 决策记录（Appendix A 散文 vs rime 真源）**：`finalTable` 按 DESIGN §2.1 强制的 5 类 `InitialClass` 建，数据取自 rime `double_pinyin_flypy.schema.yaml` 的 speller.algebra + translator.preedit_format（Appendix A 自称「逐条模拟 speller.algebra 解码」的真源）。原因：Appendix A 的重载键散文表是有损摘要——(a) 漏了 `dt+s / nl+s → ong`，但 东(ds)/通(ts)/农(ns)/龙(ls) 必须能打；(b) 把 k/l/x 的 A 侧窄化成 {g,k,h,zh,ch,sh}、排除 r/z/c/s，而 5 类模型无法把 r/z/c/s 从 `gkhzh` 里拆出来，rime 本身也是全 `gkhzh` 统一映射（`[gkhvuirzcs]k→uai` 等）。故本实现按 rime：每类内每个第二键解析为唯一 final，类内一致（已逐条验证）。唯一可见效应=非词组合如 `zk` 解成非词拼音 `zuai` 而非 nil（无害，词库永不含）。所有 M1 测试用的都是 rime 与 Appendix A 一致的真实音节。
 
 ## M2 — 词库加载 + 多音字侧车 `[Core]` (dep M1)
-- [ ] `LexiconBlobFormat`（**TFX1** 16B header、`loadUnaligned` 多字节、posting `wordLen→word→logFreq`、`logFreq=ln(1+rawCount)`）。**MF#1**（删 engine 原 `TFLX`，全线用 TFX1）
-- [ ] `LexiconStore.loadBundled/init(data:)/postings(forKey:)/maxSyllables`
-- [ ] **`build_lexicon.py` 增补 `readings.bin`（TFXR v1）**：`pinyin.txt` 每单字**全部**无调读音编成 `[Character:[String]]`。**MF#2**（D12 门必须的多音字数据源；否则 false-reject 的/地/得）
-- [ ] **`build_lexicon.py` 加构建期 OpenCC 繁→简**（user-Q1 已拍板，从 M9 提前）：opencc-python-reimplemented，同形合并频次，重跑产纯简体 `lexicon.bin`；重验 你好→nihc + 8 零声母陷阱 + `postings("aa")` 期望值改为简体序
-- [ ] `PinyinReadingIndex.loadBundled/readings(of:)/canRead(_:asShuangpinCodes:decoder:)/isAllHanzi`（接受任一读音，多音字安全）
-- [ ] 补 `readings.bin` 符号链接 + `Package.swift` resources
-- [ ] 测试：真 `lexicon.bin` 载入(`postings("aa")==[啊,阿,錒,嗄,锕]` 顺序 + 载入时间预算) + bad magic/version/truncated 抛错 + fixture 往返 + `readings.bin` 多音字覆盖(行→[xk,hh]、得→[de,dei])
+- [x] `LexiconBlobFormat`（**TFX1** 16B header、`loadUnaligned` 多字节、posting `wordLen→word→logFreq`、`logFreq=ln(1+rawCount)`）。**MF#1**（删 engine 原 `TFLX`，全线用 TFX1）
+- [x] `LexiconStore.loadBundled/init(data:)/postings(forKey:)/maxSyllables`
+- [x] **`build_lexicon.py` 增补 `readings.bin`（TFXR v1）**：`pinyin.txt` 每单字**全部**无调读音编成 `[Character:[String]]`。**MF#2**（D12 门必须的多音字数据源；否则 false-reject 的/地/得）
+- [x] **`build_lexicon.py` 加构建期 OpenCC 繁→简**（user-Q1 已拍板，从 M9 提前）：opencc-python-reimplemented，同形合并频次，重跑产纯简体 `lexicon.bin`；重验 你好→nihc + 8 零声母陷阱 + `postings("aa")` 期望值改为简体序
+- [x] `PinyinReadingIndex.loadBundled/readings(of:)/canRead(_:asShuangpinCodes:decoder:)/isAllHanzi`（接受任一读音，多音字安全）
+- [x] 补 `readings.bin` 符号链接 + `Package.swift` resources
+- [x] 测试：真 `lexicon.bin` 载入(`postings("aa")==[啊,阿,錒,嗄,锕]` 顺序 + 载入时间预算) + bad magic/version/truncated 抛错 + fixture 往返 + `readings.bin` 多音字覆盖(行→[xk,hh]、得→[de,dei])
 - **交付**：真 blob + 侧车端到端载入。**验证**：`swift test --filter Lexicon`。**依赖**：M1。
+- **交付确认 2026-07-18**：`Lexicon/{LexiconPosting,LexiconBlobFormat,LexiconStore,PinyinReadingIndex}.swift` 落地（+ 内部 `TFXRBlobFormat` 私有 reader，同文件）。`swift test --filter Lexicon` 33/33 绿；全量 `swift test`（`rm -rf .build` 净构建）56/56 绿、零 warning；`TypoFreeLLM` 侧 `swift build`+`swift test` 同步验证仍绿（1/1）。`build_lexicon.py` 全量重跑（`uv run build_lexicon.py`，6.81s）：essay 442,693→437,796 词（OpenCC 合并 4,897 条），resolved 437,490/437,796=99.9301%，`lexicon.bin` 310,654 keys / 437,490 postings / 9,044,402 bytes(8.63MB，比 OpenCC 前 8.67MB 略小)；`readings.bin` 44,435 字、6,992 个多音字（去调后去重；8,624 是去重前按调号区分的旧口径）、455,794 bytes(445.1KB)，最多 8 个读音/字（擖）。**`postings("aa")` 重算后的真实简体序 = `[啊,阿,锕,嗄]`**（4 项，非 DESIGN 引用的旧 5 项 `[啊,阿,錒,嗄,锕]`——繁体錒→简体锕，频次合并）。两次全默认参数重跑 md5 校验字节完全一致（确定性保持）。详细 rationale 见 `data/README.md`（新增 "OpenCC 繁→简 conversion" + "readings.bin toneless convention" 两节）。
 
 ## M3 — Lattice + Viterbi + user-boost overlay `[Core]` (dep M2)
 - [ ] `WordSpan`/`Candidate`/`EngineResult`(超集：engineBest+bestPath+focusCandidates+preeditDisplay+hanziCount+endsAtClauseBoundary+incompleteTail)。**MF#5**（统一结果类型）

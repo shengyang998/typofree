@@ -4,16 +4,28 @@ build_lexicon.py — TypoFree base lexicon compiler.
 
 Compiles three offline sources into a single binary blob (lexicon.bin) that
 the Swift runtime loads with ONE linear pass into `[String: [(word: String,
-freq: Float)]]`, keyed by concatenated 小鹤双拼 (flypy) shuangpin codes.
+freq: Float)]]`, keyed by concatenated 小鹤双拼 (flypy) shuangpin codes. Also
+emits `readings.bin` (TFXR v1), a per-character multi-reading sidecar used by
+the LLM-correction validation gate (D12) to accept homophone swaps.
 
 Sources (see labs/typofree/research/EXPLORE.md Appendix B):
   - essay.txt        rime/rime-essay              LGPL-3.0   word \t intCount
   - large_pinyin.txt mozillazg/phrase-pinyin-data  MIT        phrase: py1 py2 ... (tone-marked)
   - pinyin.txt       mozillazg/pinyin-data         MIT        U+XXXX: py1,py2,... # char (tone-marked)
+  - opencc-python-reimplemented (Apache-2.0)       t2s config, Traditional->Simplified conversion
 
 Pipeline (mirrors EXPLORE.md Appendix B step-by-step):
   1. essay.txt        -> (word, rawCount) frequency list, dedup-by-sum on the
                           rare (3/442,696) duplicate word lines.
+  1.5 OpenCC 繁->简    -> convert every essay.txt word through OpenCC's `t2s`
+                          config BEFORE any pinyin resolution (DECISIONS.md
+                          user-Q1, DESIGN.md §8): essay.txt is Traditional-
+                          dominant (說 340k vs 说 0) but large_pinyin.txt's
+                          phrase table is Simplified-only, so converting first
+                          also *improves* heteronym-correct phrase-exact match
+                          rates, not just the output script. Frequencies are
+                          summed when two source words collapse onto the same
+                          simplified spelling (e.g. 說+说 -> 说).
   2. large_pinyin.txt -> phrase -> [toneMarkedSyllable, ...], word-level and
                           heteronym-correct. First occurrence wins on the 2
                           known duplicate phrase keys (朝阳, 那些).
@@ -21,26 +33,34 @@ Pipeline (mirrors EXPLORE.md Appendix B step-by-step):
                           comma-separated readings), used both as the direct
                           lookup for 1-char essay words and as the per-char
                           decompose fallback for multi-char words that miss
-                          large_pinyin.txt.
-  4. For each essay word: resolve full tone-marked pinyin (len==1 -> pinyin.txt
-     char lookup; len>1 -> exact large_pinyin.txt phrase match, else per-char
-     decompose via pinyin.txt, failing the whole word if any char is missing);
-     strip tones per syllable (ü/ǖǘǚǜ -> ASCII 'v', all other toned vowels via
-     NFD-decompose + drop combining marks); encode each toneless syllable to
-     its flypy 2-letter shuangpin code (Appendix A, ported below and
-     cross-verified against the real rime/rime-double-pinyin
+                          large_pinyin.txt. Separately, ALL readings (not just
+                          the first) are also collected per character for the
+                          readings.bin sidecar (step 6).
+  4. For each (post-OpenCC) essay word: resolve full tone-marked pinyin
+     (len==1 -> pinyin.txt char lookup; len>1 -> exact large_pinyin.txt phrase
+     match, else per-char decompose via pinyin.txt, failing the whole word if
+     any char is missing); strip tones per syllable (ü/ǖǘǚǜ -> ASCII 'v', all
+     other toned vowels via NFD-decompose + drop combining marks); encode each
+     toneless syllable to its flypy 2-letter shuangpin code (Appendix A,
+     ported below and cross-verified against the real rime/rime-double-pinyin
      double_pinyin_flypy.schema.yaml `algebra` — see comments below); if every
      syllable encodes, concatenate the codes into the lexicon lookup key
      (你好 -> "ni"+"hc" -> "nihc", exactly matching Appendix B's worked example).
   5. Group postings by key; sort keys ascending (byte order) for a
      deterministic, diffable build; sort postings within a key by rawCount
-     descending (stable, so ties keep essay.txt's original order); emit
+     descending (stable, so ties keep the post-merge word order); emit
      lexicon.bin (binary, see format doc below) + lexicon_sample.tsv (first
      N postings in build order, human-readable).
+  6. Separately from the lexicon: for every character in pinyin.txt (all
+     44,435, independent of essay.txt/OpenCC), strip tone from EVERY listed
+     reading (deduping — multiple tone marks can collapse to the same
+     toneless spelling, e.g. 们's men/mén both -> "men") and emit
+     readings.bin (TFXR, format doc below).
 
 Usage:
   uv run build_lexicon.py
-  uv run build_lexicon.py --sources DIR --out-bin FILE --out-tsv FILE --sample-n 200
+  uv run build_lexicon.py --sources DIR --out-bin FILE --out-readings FILE \
+    --out-tsv FILE --sample-n 200
 
 Binary format (lexicon.bin) — all multi-byte ints little-endian, all strings
 UTF-8 byte sequences with a 1-byte length prefix (no NUL terminator), single
@@ -66,6 +86,28 @@ forward linear pass, no separate index/offset table:
                         instead of -inf; NOT scaled/combined with any length
                         bonus — that combination is a Swift-side Viterbi concern)
 
+Binary format (readings.bin, TFXR v1) — same little-endian/length-prefixed
+conventions as lexicon.bin, independent file, independent header:
+
+  Header (12 bytes):
+    0  4B  magic         ASCII "TFXR"
+    4  2B  version       UInt16 LE = 1
+    6  4B  charCount     UInt32 LE
+   10  2B  reserved      UInt16 LE = 0
+
+  Then charCount records, each:
+    1B  charUTF8Len  UInt8 (UTF-8 byte length of the character, 1 char only)
+    charUTF8Len B  charUTF8
+    1B  readingCount UInt8 (deduped count of this char's toneless readings)
+    readingCount x reading record:
+      1B  readingLen  UInt8
+      readingLen B  readingBytes  UTF-8 (toneless pinyin syllable; ASCII for
+                     every syllable EXCEPT the ü-family, which keeps the
+                     precomposed U+00FC "ü" scalar rather than the ASCII "v"
+                     spelling used internally by this script's *encode*
+                     tables above — see "readings.bin toneless convention" in
+                     data/README.md for why the two conventions differ)
+
 License: this script is original code, not derived from any GPL/LGPL source.
 The Appendix-A tables below are a data transcription of a public double-pinyin
 layout specification (also independently re-derivable from the MIT-licensed
@@ -85,6 +127,8 @@ from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+from opencc import OpenCC
 
 
 # ==========================================================================
@@ -222,6 +266,41 @@ def strip_tone(syllable: str) -> str:
     return "".join(out)
 
 
+_TONED_UMLAUT_U = {"ǖ": "ü", "ǘ": "ü", "ǚ": "ü", "ǜ": "ü"}
+
+
+def strip_tone_keep_umlaut(syllable: str) -> str:
+    """Like `strip_tone`, but keeps the ü character itself (precomposed
+    U+00FC) instead of collapsing it to the ASCII 'v' stand-in `strip_tone`
+    uses. `readings.bin` needs this convention, not `strip_tone`'s: the Swift
+    `ShuangpinDecoder` (TypoFreeCore/Sources/TypoFreeCore/Scheme/FlypyScheme.
+    swift, built in M1) canonicalizes its ü-family finals on literal "ü", so
+    `decodeSyllable("nv")` returns the pinyin string "nü" (not "nv") — a
+    readings.bin built with `strip_tone`'s ASCII "v" would never match that,
+    and every nü/lü/nüe/lüe correction would false-reject at the D12 gate
+    (must_fix #2's whole point). `strip_tone` itself must stay untouched: its
+    ASCII "v" convention is baked into this file's FINAL_TO_KEY/ZERO_INITIAL
+    *encode* tables above and is a separate, internally-consistent namespace
+    (shuangpin key bytes, not pinyin text) used only by the lexicon-key
+    pipeline. See "readings.bin toneless convention" in data/README.md.
+    """
+    out = []
+    for ch in syllable:
+        if ch in _TONED_UMLAUT_U:
+            out.append(_TONED_UMLAUT_U[ch])
+            continue
+        if ch == "ü":
+            out.append(ch)
+            continue
+        if ch.isascii():
+            out.append(ch)
+            continue
+        decomposed = unicodedata.normalize("NFD", ch)
+        base = "".join(c for c in decomposed if not unicodedata.combining(c))
+        out.append(base if base else ch)
+    return "".join(out)
+
+
 # ==========================================================================
 # Source parsers
 # ==========================================================================
@@ -250,6 +329,28 @@ def load_essay(path: Path) -> "OrderedDict[str, int]":
     if malformed:
         print(f"  [essay.txt] WARNING: {malformed} malformed lines skipped", file=sys.stderr)
     return words
+
+
+def convert_essay_to_simplified(
+    essay: "OrderedDict[str, int]", converter: OpenCC
+) -> tuple["OrderedDict[str, int]", int]:
+    """Traditional -> Simplified via OpenCC `t2s`, run BEFORE any pinyin
+    resolution (DECISIONS.md user-Q1, DESIGN.md §8). Sums rawCount when two
+    source words collapse onto the same simplified spelling (e.g. 說+说 ->
+    说). Simplified-already / script-neutral words pass through unchanged
+    (OpenCC's t2s is a no-op on them, verified: 你好 -> 你好, 啊 -> 啊).
+    Returns (converted, mergedEntryCount) where mergedEntryCount is how many
+    *source* entries folded into an already-produced simplified key (so
+    `len(essay) - mergedEntryCount == len(converted)`).
+    """
+    converted: "OrderedDict[str, int]" = OrderedDict()
+    merges = 0
+    for word, count in essay.items():
+        simplified = converter.convert(word)
+        if simplified in converted:
+            merges += 1
+        converted[simplified] = converted.get(simplified, 0) + count
+    return converted, merges
 
 
 def load_large_pinyin(path: Path) -> dict[str, list[str]]:
@@ -302,6 +403,33 @@ def load_pinyin_chars(path: Path) -> dict[str, str]:
             mapping[char] = first_reading
     if malformed:
         print(f"  [pinyin.txt] WARNING: {malformed} malformed lines skipped", file=sys.stderr)
+    return mapping
+
+
+def load_pinyin_chars_all_readings(path: Path) -> dict[str, list[str]]:
+    """char (by codepoint) -> ALL tone-marked readings (comma-split, order
+    preserved). An independent read of the same file `load_pinyin_chars`
+    parses (kept as its own untouched function+call so the well-tested
+    first-reading resolution pipeline cannot regress) — this one feeds
+    readings.bin (must_fix #2), which needs every reading, not just the
+    first, to avoid false-rejecting legitimate homophone corrections
+    (的/地/得-class) at the D12 validation gate.
+    """
+    mapping: dict[str, list[str]] = {}
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            m = _PINYIN_LINE_RE.match(line)
+            if not m:
+                continue
+            cp_hex, readings = m.groups()
+            try:
+                char = chr(int(cp_hex, 16))
+            except ValueError:
+                continue
+            mapping[char] = [r.strip() for r in readings.split(",")]
     return mapping
 
 
@@ -397,6 +525,70 @@ def write_sample_tsv(sorted_keys: list[str], keyed: dict[str, list[tuple[str, in
 
 
 # ==========================================================================
+# readings.bin (TFXR v1) — multi-reading sidecar, must_fix #2
+# ==========================================================================
+
+MAGIC_READINGS = b"TFXR"
+READINGS_FORMAT_VERSION = 1
+
+
+def build_readings_map(pinyin_chars_all: dict[str, list[str]]) -> dict[str, list[str]]:
+    """char -> deduped, order-preserved toneless readings (ü kept as U+00FC —
+    see `strip_tone_keep_umlaut`'s docstring for why this must differ from
+    `strip_tone`'s ASCII-'v' convention)."""
+    out: dict[str, list[str]] = {}
+    for ch, readings in pinyin_chars_all.items():
+        toneless: list[str] = []
+        seen: set[str] = set()
+        for r in readings:
+            t = strip_tone_keep_umlaut(r)
+            if t not in seen:
+                seen.add(t)
+                toneless.append(t)
+        out[ch] = toneless
+    return out
+
+
+def write_readings_binary(readings_map: dict[str, list[str]], out_path: Path) -> dict:
+    # Deterministic order: sort by the character string itself (Python
+    # compares str by codepoint), independent of dict-iteration order.
+    sorted_chars = sorted(readings_map.keys())
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    max_readings_per_char = 0
+    heteronym_count = 0
+    with out_path.open("wb") as f:
+        f.write(MAGIC_READINGS)
+        f.write(struct.pack("<H", READINGS_FORMAT_VERSION))
+        f.write(struct.pack("<I", len(sorted_chars)))
+        f.write(struct.pack("<H", 0))  # reserved
+        for ch in sorted_chars:
+            char_bytes = ch.encode("utf-8")
+            if len(char_bytes) > 255:
+                raise ValueError(f"char too long for UInt8 length prefix: {ch!r}")
+            readings = readings_map[ch]
+            if len(readings) > 255:
+                raise ValueError(f"too many readings for UInt8 count: {ch!r} ({len(readings)})")
+            max_readings_per_char = max(max_readings_per_char, len(readings))
+            if len(readings) > 1:
+                heteronym_count += 1
+            f.write(struct.pack("<B", len(char_bytes)))
+            f.write(char_bytes)
+            f.write(struct.pack("<B", len(readings)))
+            for r in readings:
+                r_bytes = r.encode("utf-8")
+                if len(r_bytes) > 255:
+                    raise ValueError(f"reading too long for UInt8 length prefix: {r!r}")
+                f.write(struct.pack("<B", len(r_bytes)))
+                f.write(r_bytes)
+    return {
+        "char_count": len(sorted_chars),
+        "heteronym_count": heteronym_count,
+        "max_readings_per_char": max_readings_per_char,
+        "bytes_on_disk": out_path.stat().st_size,
+    }
+
+
+# ==========================================================================
 # Spot-check report (task step 5)
 # ==========================================================================
 
@@ -461,21 +653,32 @@ class BuildStats:
     zero_count_words: int = 0
 
 
-def build(sources_dir: Path, out_bin: Path, out_tsv: Path, sample_n: int) -> None:
+def build(sources_dir: Path, out_bin: Path, out_readings: Path, out_tsv: Path, sample_n: int) -> None:
     t0 = time.time()
-    print(f"[1/5] Loading sources from {sources_dir} ...")
-    essay = load_essay(sources_dir / "essay.txt")
+    print(f"[1/7] Loading sources from {sources_dir} ...")
+    essay_raw = load_essay(sources_dir / "essay.txt")
     large_pinyin = load_large_pinyin(sources_dir / "large_pinyin.txt")
-    pinyin_chars = load_pinyin_chars(sources_dir / "pinyin.txt")
+    pinyin_chars_all = load_pinyin_chars_all_readings(sources_dir / "pinyin.txt")
+    pinyin_chars = {ch: readings[0] for ch, readings in pinyin_chars_all.items()}
     t_load = time.time()
     print(
-        f"      essay.txt: {len(essay)} unique words | "
+        f"      essay.txt: {len(essay_raw)} unique words | "
         f"large_pinyin.txt: {len(large_pinyin)} phrases | "
         f"pinyin.txt: {len(pinyin_chars)} chars"
     )
     print(f"      load time: {t_load - t0:.2f}s")
 
-    print("[2/5] Resolving pinyin + encoding flypy keys ...")
+    print("[2/7] OpenCC 繁->简 (t2s) + frequency merge ...")
+    opencc_t2s = OpenCC("t2s")
+    essay, opencc_merges = convert_essay_to_simplified(essay_raw, opencc_t2s)
+    t_opencc = time.time()
+    print(
+        f"      essay words: {len(essay_raw)} (pre-OpenCC) -> {len(essay)} (post-merge), "
+        f"{opencc_merges} source entries merged into an existing simplified key"
+    )
+    print(f"      OpenCC time: {t_opencc - t_load:.2f}s")
+
+    print("[3/7] Resolving pinyin + encoding flypy keys ...")
     stats = BuildStats(essay_lines=len(essay), essay_unique_words=len(essay))
     keyed: dict[str, list[tuple[str, int]]] = {}
 
@@ -506,30 +709,36 @@ def build(sources_dir: Path, out_bin: Path, out_tsv: Path, sample_n: int) -> Non
         keyed.setdefault(key, []).append((word, count))
 
     t_resolve = time.time()
-    print(f"      resolve+encode time: {t_resolve - t_load:.2f}s")
+    print(f"      resolve+encode time: {t_resolve - t_opencc:.2f}s")
 
-    print("[3/5] Sorting keys + postings ...")
+    print("[4/7] Sorting keys + postings ...")
     sorted_keys = sorted(keyed.keys())
     for k in sorted_keys:
-        keyed[k].sort(key=lambda wc: -wc[1])  # freq desc, stable -> essay.txt order breaks ties
+        keyed[k].sort(key=lambda wc: -wc[1])  # freq desc, stable -> post-OpenCC-merge order breaks ties
     t_sort = time.time()
     print(f"      sort time: {t_sort - t_resolve:.2f}s")
 
-    print(f"[4/5] Writing {out_bin} ...")
+    print(f"[5/7] Writing {out_bin} ...")
     bin_stats = write_binary(sorted_keys, keyed, out_bin)
-    print(f"[5/5] Writing {out_tsv} (first {sample_n} postings) ...")
+    print(f"[6/7] Writing {out_tsv} (first {sample_n} postings) ...")
     tsv_written = write_sample_tsv(sorted_keys, keyed, out_tsv, sample_n)
     t_write = time.time()
     print(f"      write time: {t_write - t_sort:.2f}s")
 
-    total_time = t_write - t0
+    print(f"[7/7] Writing {out_readings} (readings.bin, TFXR v1) ...")
+    readings_map = build_readings_map(pinyin_chars_all)
+    readings_stats = write_readings_binary(readings_map, out_readings)
+    t_readings = time.time()
+    print(f"      readings.bin time: {t_readings - t_write:.2f}s")
+
+    total_time = t_readings - t0
 
     # ---- Report ----
     print("\n" + "=" * 72)
     print("BUILD REPORT")
     print("=" * 72)
-    print(f"essay.txt lines (raw):        {stats.essay_lines}")
-    print(f"essay.txt unique words:       {stats.essay_unique_words}")
+    print(f"essay.txt unique words (pre-OpenCC):  {len(essay_raw)}")
+    print(f"essay words (post-OpenCC merge):      {stats.essay_unique_words} ({opencc_merges} merged)")
     print(f"  of which rawCount==0:       {stats.zero_count_words} ({stats.zero_count_words/stats.essay_unique_words*100:.3f}%)")
     print(f"resolved:                     {stats.resolved} ({stats.resolved/stats.essay_unique_words*100:.4f}%)")
     print(f"unresolved:                   {stats.unresolved} ({stats.unresolved/stats.essay_unique_words*100:.4f}%)")
@@ -548,6 +757,11 @@ def build(sources_dir: Path, out_bin: Path, out_tsv: Path, sample_n: int) -> Non
     print(f"lexicon.bin size:              {bin_stats['bytes_on_disk']} bytes ({bin_stats['bytes_on_disk']/1024/1024:.2f} MB)")
     print(f"lexicon_sample.tsv rows:       {tsv_written}")
     print()
+    print(f"readings.bin chars:            {readings_stats['char_count']}")
+    print(f"readings.bin heteronym chars:  {readings_stats['heteronym_count']}")
+    print(f"readings.bin max readings/char:{readings_stats['max_readings_per_char']}")
+    print(f"readings.bin size:             {readings_stats['bytes_on_disk']} bytes ({readings_stats['bytes_on_disk']/1024:.1f} KB)")
+    print()
     # Rough resident-memory estimate for the Swift in-memory Dictionary.
     # Swift String: ~16B inline for <=15 UTF8 bytes (small-string optimized,
     # true for virtually all words/keys here), else heap alloc w/ ~32B+ header.
@@ -562,17 +776,19 @@ def build(sources_dir: Path, out_bin: Path, out_tsv: Path, sample_n: int) -> Non
     print(f"  (blob-to-resident inflation ~{est_total/bin_stats['bytes_on_disk']:.1f}x; cross-check vs EXPLORE.md's")
     print(f"   independent D3 estimate of 30-70MB for the base lexicon)")
     print()
-    print(f"wall time: load={t_load-t0:.2f}s resolve={t_resolve-t_load:.2f}s sort={t_sort-t_resolve:.2f}s "
-          f"write={t_write-t_sort:.2f}s TOTAL={total_time:.2f}s")
+    print(f"wall time: load={t_load-t0:.2f}s opencc={t_opencc-t_load:.2f}s resolve={t_resolve-t_opencc:.2f}s "
+          f"sort={t_sort-t_resolve:.2f}s write={t_write-t_sort:.2f}s readings={t_readings-t_write:.2f}s "
+          f"TOTAL={total_time:.2f}s")
 
     print_spot_checks(large_pinyin, pinyin_chars)
 
 
 def main() -> None:
     repo_root_data = Path(__file__).resolve().parent.parent / "data"
-    ap = argparse.ArgumentParser(description="Compile TypoFree's base lexicon into lexicon.bin")
+    ap = argparse.ArgumentParser(description="Compile TypoFree's base lexicon into lexicon.bin + readings.bin")
     ap.add_argument("--sources", type=Path, default=repo_root_data / "sources")
     ap.add_argument("--out-bin", type=Path, default=repo_root_data / "lexicon.bin")
+    ap.add_argument("--out-readings", type=Path, default=repo_root_data / "readings.bin")
     ap.add_argument("--out-tsv", type=Path, default=repo_root_data / "lexicon_sample.tsv")
     ap.add_argument("--sample-n", type=int, default=200)
     args = ap.parse_args()
@@ -583,7 +799,7 @@ def main() -> None:
             print(f"ERROR: missing source file {p}", file=sys.stderr)
             sys.exit(1)
 
-    build(args.sources, args.out_bin, args.out_tsv, args.sample_n)
+    build(args.sources, args.out_bin, args.out_readings, args.out_tsv, args.sample_n)
 
 
 if __name__ == "__main__":

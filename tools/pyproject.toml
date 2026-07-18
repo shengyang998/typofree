@@ -1,6 +1,8 @@
 [project]
 name = "typofree-tools"
 version = "0.1.0"
-description = "TypoFree offline build tooling (lexicon compiler). Stdlib-only, no runtime deps."
+description = "TypoFree offline build tooling (lexicon compiler). Stdlib + opencc-python-reimplemented (build-time Traditional->Simplified conversion)."
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "opencc-python-reimplemented>=0.1.7",
+]
