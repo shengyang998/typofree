@@ -114,13 +114,20 @@
   6. **`SendDetectionPoller` 不在 M6**（part 1 待接 note 曾把它列进 part 2，over-scoped）：DESIGN §4 + M7 清单 + 本次任务硬约束「M6 不加 timer」都把 poller/`LearningLoopCoordinator` 归 M7。part 2 只落 timer-free 的读取阶梯；`SendDetectionSession`（part 1 纯状态机）由 M7 poller 以 1.5s cadence 驱动。
 
 ## M7 — 学习循环 + userdict `[Shell]`+`[Core]` (dep M6)
-- [ ] `MyersDiff` + `DiffLearner`(纯：编辑脚本分组 + 拒绝门 editRatio>0.5/lengthDelta>0.6 + ≤4 豁免 + 逐 op 分类 用 `PinyinReadingIndex` 读音交集/`encode(tonelessSyllables:)`)
-- [ ] `UserDictStore`(actor, **原生 sqlite3, 弃 GRDB**, WAL, 4 表, occurrence≥2→boost=log(1+count), clearAll+checkpoint+VACUUM)。**MF#10**（选定库+类型+schema）
+- [x] `MyersDiff` + `DiffLearner`(纯：编辑脚本分组 + 拒绝门 editRatio>0.5/lengthDelta>0.6 + ≤4 豁免 + 逐 op 分类 用 `PinyinReadingIndex` 读音交集/`encode(tonelessSyllables:)`)
+- [x] `UserDictStore`(actor, **原生 sqlite3, 弃 GRDB**, WAL, 4 表, occurrence≥2→boost=log(1+count), clearAll+checkpoint+VACUUM)。**MF#10**（选定库+类型+schema）
 - [ ] `OverlayHost`(不可变 snapshot 原子换入) + `UserDictStore.loadBoostOverlay` 接线到 `SessionDependencies.overlayProvider`。**MF#8**（overlay 表征定为不可变换入）
 - [ ] `LearningLoopCoordinator`(唯一 send-detect+LRU 归属, cap5) + app-shell `SendDetectionPoller`(持 commit 时抓的引用轮询, 1.5s, 仅有未 flush 会话时起 timer)。去三处重叠 LRU（DESIGN §4）
 - [ ] `CommitObserver.didCommit(committed:spans:sessionID:snapshot:)` 携带 `WordSpan`(engine.bestPath)+`ContextSnapshot`(含 pollTarget)。**MF#7**（commit 契约线出 keySeq/overlay key/pollTarget）
 - [ ] 测试 [Core]：`DiffLearner`(≤4 救单字换/editRatio 拒/lengthDelta 边界 0.6过0.7拒/OOV 陷阱 keySeq 外→wd 王→wh) + `UserDictStore`(occurrence<2 不影响/==2 促进/clearAll/并发不坏 WAL) + `LearningLoopCoordinator.isPolling` CPU 不变量
 - **交付**：改字→send-detect→学习→后续排名升，端到端。**验证**：真机多 app：打短语改字发送，验证学习事件记录 + 后续候选提升。**依赖**：M6。
+- **交付确认 2026-07-18（part 1，Core — part 2 send-detect/wiring 待接）**：`TypoFreeCore` `swift test`（净构建）**194/194 绿**（M0-M6 的 163 + M7 part 1 新增 31），零 warning。新增 Core 文件：`Learning/{MyersDiff,DiffLearner,OverlayHost}.swift` + `UserDict/UserDictStore.swift`。新增测试：`MyersDiffTests`(8)/`DiffLearnerTests`(12)/`UserDictStoreTests`(6)/`OverlayHostTests`(5)。**part 1 决策记录**：
+  1. **`DiffLearner` 输入取 (committedText, finalFieldText) 双串**（本次任务口径），非 DESIGN §2.7 的 `committedSpans`——纯 re-pinyinize 自足。门顺序：empty→(仅 `committed.count>4` 才跑)`editRatio>0.5`→`lengthDelta>0.6`→逐 op；`≤4 豁免`=`committed.count≤4` 跳全局门救的/地单字换。`editRatio=max(del,ins)/max(committed,final)`、`lengthDelta=|Δlen|/committed`。keySeq 由 `PinyinReadingIndex` 读音交集(修正,取 new 侧首个共享且可编码读音)/首个可编码读音(OOV) 经 `encode(tonelessSyllables:)` 反查——外→wd、王→wh 端到端过。
+  2. **OOV span cap = 20**（任务"Store spans ≤20 chars only"），非 DESIGN §2.7 引用的 ≤6——>20 全汉字 insert 不 emit；correction 仍 ≤4 同长且逐字读音交集≠∅。**"not in lexicon" 过滤留 part 2**（Core 刻意不依赖 `LexiconStore`，part 1 emit 全部全汉字可编码 insert run 作 pending OOV）。
+  3. **`UserDictStore`**：`words` 统一计数 + 物化 `boost=log(1+count)`（读时 `WHERE count>=2` 过滤，`loadBoostOverlay()->UserBoostOverlay`）；`correction_pairs`/`pending_oov` 为附属账本（同步累加 count）；read-modify-write 全在 actor 内串行（单写者 WAL，`nonisolated(unsafe)` C handle 供 `deinit` close）；`recordCorrection`/`recordOOV` 跨 ≥2 阈值才回 `BoostUpdate`；`recordEvent` 写前把 span 截到 ≤20；`clearAll` = DELETE×4 + `wal_checkpoint(TRUNCATE)` + `VACUUM`；DB 路径可注入，默认冻结 `com.soleilyu.typofree`（rename 后扫）。
+  4. **`OverlayHost`**：值型 `UserBoostOverlay` 整体重建原子换入（`apply(BoostUpdate)` merge delta / `replaceAll` / `snapshot()`），MainActor lock-free 读；`BoostUpdate`（DESIGN §2.8）定义在 `OverlayHost.swift`（其消费者+生产者同模块可见）。
+  5. **测试 seam**：`correctionPairCount`/`pendingOOVCount` internal（`@testable` 可见，不扩公有面，仿 `InputSession.activeRequestID`）；`DiffLearner` 全测走真 `readings.bin`+flypy decoder，不手搓读音表。
+- **part 2 待接（app-shell + wiring）**：`LearningLoopCoordinator`(唯一 send-detect+会话 LRU cap5，`isPolling` CPU 不变量) + app-shell `SendDetectionPoller`(持 commit 时抓的 `AXUIElement`/`IMKTextInput` 引用 1.5s 轮询 `SendDetectionSession.poll`，仅有未 flush 会话时起 timer) + `CommitObserver.didCommit` 接线（`InputSession` 现传 `nil`→接实，携 `WordSpan`(engine.bestPath)+`ContextSnapshot`+`SendDetectionPollTargetRef`）+ `OverlayHost` 接 `SessionDependencies.overlayProvider` + 启动 `UserDictStore.loadBoostOverlay` 装首个 overlay + OOV "not in lexicon" 过滤（接 `LexiconStore`）。
 
 ## M8 — Settings / onboarding / 模型下载 UX `[Shell]` (dep M7)。**MF#12**
 - [ ] `BackendPickerView`(probeBackends 列 FM/MLX/Off + 改选热切换 `coordinator.setProvider` 先释放旧 MLX)
